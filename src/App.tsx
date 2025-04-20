@@ -2,7 +2,7 @@ import styled from 'styled-components';
 import './styles/foundation/index.css';
 import Badge from './components/contents/Badge';
 import Keyboard from './components/resource/Keyboard';
-import ExerciseCard from './components/contents/ExerciseCard';
+import Carousel from './components/contents/Carousel';
 
 import weightImage from './assets/ex1.png';
 
@@ -68,6 +68,38 @@ const SpacingTest = styled.div`
 `;
 
 function App() {
+  const carouselCards = [
+    {
+      id: '1',
+      title: '바벨 스쿼트',
+      description: '발을 어깨너비로 벌리고, 허벅지가 바닥과 수평을 이룰 때까지 앉았다 일어나는 동작',
+      imageSrc: weightImage,
+    },
+    {
+      id: '2',
+      title: '데드리프트',
+      description: '바벨을 잡고 허리를 펴며 일어서는 동작으로 전신 근력 운동',
+      imageSrc: weightImage,
+    },
+    {
+      id: '3',
+      title: '벤치프레스',
+      description: '벤치에 누워 가슴 근육을 사용해 바벨을 밀어올리는 상체 운동',
+      imageSrc: weightImage,
+    },
+    {
+      id: '4',
+      title: '오버헤드 프레스',
+      description: '바벨을 머리 위로 들어올리는 어깨 운동',
+      imageSrc: weightImage,
+    },
+    {
+      id: '5',
+      title: '바벨 로우',
+      description: '상체를 숙이고 바벨을 당기는 등 운동',
+      imageSrc: weightImage,
+    },
+  ];
 
   return (
     <Container>
@@ -142,8 +174,7 @@ function App() {
       {/* 키보드 컴포넌트 */}
       <Keyboard />
 
-      {/* 운동 카드 컴포넌트 */}
-      // status prop을 전달하지 않으면 자동으로 'default' 상태가 됩니다
+      {/* 운동 카드 컴포넌트 예제들은 주석 처리
       <ExerciseCard 
         imageSrc={weightImage}
         imageAlt="스쿼트 운동 이미지"
@@ -151,7 +182,6 @@ function App() {
         bodyText="반드시 두 줄로 문장을 끝냅니다."
       />
 
-      // status="focused"로 설정하면 노란색 배경과 그림자 효과가 적용됩니다
       <ExerciseCard 
         status="focused"
         imageSrc={weightImage}
@@ -160,7 +190,6 @@ function App() {
         bodyText="반드시 두 줄로 문장을 끝냅니다."
       />
 
-      // status="selected"로 설정하면 연한 노란색 배경과 이중 그림자가 적용됩니다
       <ExerciseCard 
         status="selected"
         imageSrc={weightImage}
@@ -168,7 +197,17 @@ function App() {
         subtitle="Subtitle 1"
         bodyText="반드시 두 줄로 문장을 끝냅니다."
       />
+      */}
 
+      {/* Carousel 컴포넌트 */}
+      <div style={{ 
+        marginTop: 'var(--margin-4)',
+        display: 'flex',
+        justifyContent: 'center',
+        width: '100%'
+      }}>
+        <Carousel cards={carouselCards} />
+      </div>
     </Container>
   );
 }

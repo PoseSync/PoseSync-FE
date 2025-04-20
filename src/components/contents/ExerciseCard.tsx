@@ -47,7 +47,7 @@ const ContentContainer = styled.div`
   width: 692px;
   height: 798px;
   gap: 10px;
-  padding-bottom: var(--padding-2xl);
+  padding: var(--padding-3xl);
   display: flex;
   flex-direction: column;
   align-items: center;
