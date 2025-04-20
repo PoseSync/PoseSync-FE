@@ -3,6 +3,8 @@ import './styles/foundation/index.css';
 import Badge from './components/contents/Badge';
 import Keyboard from './components/resource/Keyboard';
 import Carousel from './components/contents/Carousel';
+import { PrimaryButton } from './components/buttons/PrimaryButton';
+import { SecondaryButton } from './components/buttons/SecondaryButton';
 
 import weightImage from './assets/ex1.png';
 
@@ -65,6 +67,25 @@ const SpacingTest = styled.div`
     margin-bottom: var(--margin-2);
     border-radius: var(--radius-xs);
   }
+`;
+
+const ButtonSection = styled.section`
+  padding: 40px;
+  background-color: #f5f5f5;
+  margin-top: 40px;
+
+  h2 {
+    margin-bottom: 20px;
+    font-size: 24px;
+    color: #333;
+  }
+`;
+
+const ButtonRow = styled.div`
+  display: flex;
+  gap: 20px;
+  margin-bottom: 40px;
+  flex-wrap: wrap;
 `;
 
 function App() {
@@ -174,31 +195,6 @@ function App() {
       {/* 키보드 컴포넌트 */}
       <Keyboard />
 
-      {/* 운동 카드 컴포넌트 예제들은 주석 처리
-      <ExerciseCard 
-        imageSrc={weightImage}
-        imageAlt="스쿼트 운동 이미지"
-        subtitle="Subtitle 1"
-        bodyText="반드시 두 줄로 문장을 끝냅니다."
-      />
-
-      <ExerciseCard 
-        status="focused"
-        imageSrc={weightImage}
-        imageAlt="스쿼트 운동 이미지"
-        subtitle="Subtitle 1"
-        bodyText="반드시 두 줄로 문장을 끝냅니다."
-      />
-
-      <ExerciseCard 
-        status="selected"
-        imageSrc={weightImage}
-        imageAlt="스쿼트 운동 이미지"
-        subtitle="Subtitle 1"
-        bodyText="반드시 두 줄로 문장을 끝냅니다."
-      />
-      */}
-
       {/* Carousel 컴포넌트 */}
       <div style={{ 
         marginTop: 'var(--margin-4)',
@@ -208,6 +204,35 @@ function App() {
       }}>
         <Carousel cards={carouselCards} />
       </div>
+
+      <ButtonSection>
+        <h2>Button Size XL</h2>
+        <ButtonRow>
+          <PrimaryButton size="xl">Default XL</PrimaryButton>
+          <PrimaryButton size="xl" selected>Selected XL</PrimaryButton>
+          <PrimaryButton size="xl" disabled>Disabled XL</PrimaryButton>
+          <SecondaryButton size="xl">Default XL</SecondaryButton>
+          <SecondaryButton size="xl" selected>Selected XL</SecondaryButton>
+          <SecondaryButton size="xl" disabled>Disabled XL</SecondaryButton>
+        </ButtonRow>
+
+        <h2>Button Size M</h2>
+        <ButtonRow>
+          <PrimaryButton size="m">Default M</PrimaryButton>
+          <PrimaryButton size="m" selected>Selected M</PrimaryButton>
+          <PrimaryButton size="m" disabled>Disabled M</PrimaryButton>
+          <SecondaryButton size="m">Default M</SecondaryButton>
+          <SecondaryButton size="m" selected>Selected M</SecondaryButton>
+          <SecondaryButton size="m" disabled>Disabled M</SecondaryButton>
+        </ButtonRow>
+
+        <h2>Button Size S</h2>
+        <ButtonRow>
+          <PrimaryButton size="s">Default S</PrimaryButton>
+          <PrimaryButton size="s" selected>Selected S</PrimaryButton>
+          <PrimaryButton size="s" disabled>Disabled S</PrimaryButton>
+        </ButtonRow>
+      </ButtonSection>
     </Container>
   );
 }
