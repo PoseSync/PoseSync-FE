@@ -1,0 +1,8 @@
+:root {
+    /* === Grid System === */
+    --grid-columns: 12;
+    --grid-margin: 100px;
+    --grid-gutter: 80px;
+    --grid-container-width: 1740px;
+  }
+  

@@ -1,0 +1,100 @@
+:root {
+    /* === Typography: Display === */
+    --display-1-bold-font-size: 160px;
+    --display-1-bold-line-height: 200px;
+    --display-1-bold-letter-spacing: -1.2px;
+
+    --display-2-bold-font-size: 92px;
+    --display-2-bold-line-height: 144px;
+    --display-2-bold-letter-spacing: -0.92px;
+
+    /* === Typography: Heading === */
+    --heading-1-bold-font-size: 88px;
+    --heading-1-bold-line-height: 112px;
+    --heading-1-bold-letter-spacing: -0.88px;
+
+    --heading-1-semibold-font-size: 88px;
+    --heading-1-semibold-line-height: 112px;
+    --heading-1-semibold-letter-spacing: -0.88px;
+
+    --heading-2-bold-font-size: 80px;
+    --heading-2-bold-line-height: 100px;
+    --heading-2-bold-letter-spacing: -0.8px;
+
+    --heading-2-semibold-font-size: 80px;
+    --heading-2-semibold-line-height: 100px;
+    --heading-2-semibold-letter-spacing: -0.8px;
+
+    /* === Typography: Subtitle === */
+    --subtitle-1-bold-font-size: 60px;
+    --subtitle-1-bold-line-height: 80px;
+    --subtitle-1-bold-letter-spacing: -0.6px;
+
+    --subtitle-1-semibold-font-size: 60px;
+    --subtitle-1-semibold-line-height: 80px;
+    --subtitle-1-semibold-letter-spacing: -0.6px;
+
+    --subtitle-2-bold-font-size: 54px;
+    --subtitle-2-bold-line-height: 72px;
+    --subtitle-2-bold-letter-spacing: -0.54px;
+
+    --subtitle-2-semibold-font-size: 54px;
+    --subtitle-2-semibold-line-height: 72px;
+    --subtitle-2-semibold-letter-spacing: -0.54px;
+
+    /* === Typography: Body === */
+    --body-1-medium-font-size: 48px;
+    --body-1-medium-line-height: 64px;
+    --body-1-medium-letter-spacing: -0.48px;
+
+    --body-1-regular-font-size: 48px;
+    --body-1-regular-line-height: 64px;
+    --body-1-regular-letter-spacing: -0.48px;
+
+    --body-2-medium-font-size: 44px;
+    --body-2-medium-line-height: 56px;
+    --body-2-medium-letter-spacing: -0.44px;
+
+    --body-2-regular-font-size: 44px;
+    --body-2-regular-line-height: 56px;
+    --body-2-regular-letter-spacing: -0.44px;
+
+    --body-3-medium-font-size: 40px;
+    --body-3-medium-line-height: 56px;
+    --body-3-medium-letter-spacing: -0.44px;
+
+    --body-3-regular-font-size: 40px;
+    --body-3-regular-line-height: 56px;
+    --body-3-regular-letter-spacing: -0.44px;
+
+    /* === Typography: Caption === */
+    --caption-1-medium-font-size: 60px;
+    --caption-1-medium-line-height: 72px;
+    --caption-1-medium-letter-spacing: -0.6px;
+
+    --caption-1-regular-font-size: 60px;
+    --caption-1-regular-line-height: 72px;
+    --caption-1-regular-letter-spacing: -0.6px;
+
+    --caption-2-medium-font-size: 54px;
+    --caption-2-medium-line-height: 64px;
+    --caption-2-medium-letter-spacing: -0.54px;
+
+    --caption-2-regular-font-size: 54px;
+    --caption-2-regular-line-height: 64px;
+    --caption-2-regular-letter-spacing: -0.54px;
+    
+    /* === Typography: Button Text === */
+    --button-text-xl-bold-font-size: 54px;
+    --button-text-xl-bold-line-height: 72px;
+    --button-text-xl-bold-letter-spacing: -0.54px;
+  
+    --button-text-m-bold-font-size: 40px;
+    --button-text-m-bold-line-height: 56px;
+    --button-text-m-bold-letter-spacing: -0.4px;
+  
+    --button-text-s-bold-font-size: 36px;
+    --button-text-s-bold-line-height: 52px;
+    --button-text-s-bold-letter-spacing: -0.36px;
+  }
+  
