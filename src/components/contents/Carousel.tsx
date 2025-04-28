@@ -39,12 +39,14 @@ const SliderContainer = styled.div`
 `;
 
 const Carousel: React.FC<CarouselProps> = ({ cards }) => {
-  const [currentSlide, setCurrentSlide] = useState(0);
+  // 가운데 인덱스 계산
+  const initialIndex = Math.floor(cards.length / 2);
+  const [currentSlide, setCurrentSlide] = useState(initialIndex);
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
 
   const [sliderRef, instanceRef] = useKeenSlider<HTMLDivElement>({
-    initial: 2,
+    initial: initialIndex,
     loop: true,
     mode: "snap",
     slides: {
