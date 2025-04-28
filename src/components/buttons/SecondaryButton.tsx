@@ -9,11 +9,13 @@ interface SecondaryButtonProps {
   onClick?: () => void;
   selected?: boolean;
   disabled?: boolean;
+  fontSize?: string;
 }
 
 interface StyledButtonProps {
   size: ButtonSize;
   selected: boolean;
+  fontSize?: string;
 }
 
 const StyledButton = styled.button<StyledButtonProps>`
@@ -30,23 +32,23 @@ const StyledButton = styled.button<StyledButtonProps>`
   color: var(--white);
   background-color: var(--gray-800);
   cursor: pointer;
+  width: 100%;
+  font-size: ${({ fontSize }) => fontSize || '24px'};
 
   /* Size Styles */
   ${({ size }) => size === 'xl' && css`
     min-width: 180px;
-    width: clamp(180px, 100%, 244px);
+    width: 100%;
     height: 170px;
     border-radius: var(--radius-m);
-    font-size: 24px;
     line-height: 32px;
   `}
 
   ${({ size }) => size === 'm' && css`
     min-width: 150px;
-    width: clamp(150px, 100%, 201px);
+    width: 100%;
     height: 124px;
     border-radius: var(--radius-s);
-    font-size: 16px;
     line-height: 24px;
   `}
 
@@ -69,6 +71,7 @@ export const SecondaryButton: React.FC<SecondaryButtonProps> = ({
   disabled = false,
   onClick,
   children,
+  fontSize,
 }) => {
   return (
     <StyledButton
@@ -76,6 +79,7 @@ export const SecondaryButton: React.FC<SecondaryButtonProps> = ({
       onClick={!disabled ? onClick : undefined}
       disabled={disabled}
       selected={selected}
+      fontSize={fontSize}
     >
       {children}
     </StyledButton>

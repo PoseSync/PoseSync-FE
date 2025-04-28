@@ -86,24 +86,52 @@ const TransparentButton = styled.button`
   cursor: pointer;
 `;
 
+const BottomContainer = styled.div`
+  width: 1146px;
+  height: 216.98px;
+  background-color: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+`;
 
-const Keyboard = () => {
+const HomeIndicatorWrapper = styled.div`
+  width: 1146px;
+  height: 103.9px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background-color: transparent;
+`;
+
+const HomeIndicator = styled.div`
+  width: 421.73px;
+  height: 15.28px;
+  border-radius: 305.6px;
+  background: var(--white);
+`;
+
+interface KeyboardProps {
+  onInput?: (value: string) => void;
+}
+
+const Keyboard = ({ onInput }: KeyboardProps) => {
   return (
     <KeyboardContainer>
       <KeypadContainer>
         <NormalRowContainer>
-          <NormalButton>
+          <NormalButton onClick={() => onInput?.('1')}>
             <ButtonContent>
               <NumberText>1</NumberText>
             </ButtonContent>
           </NormalButton>
-          <NormalButton>
+          <NormalButton onClick={() => onInput?.('2')}>
             <ButtonContent>
               <NumberText>2</NumberText>
               <AlphabetText>ABC</AlphabetText>
             </ButtonContent>
           </NormalButton>
-          <NormalButton>
+          <NormalButton onClick={() => onInput?.('3')}>
             <ButtonContent>
               <NumberText>3</NumberText>
               <AlphabetText>DEF</AlphabetText>
@@ -111,19 +139,19 @@ const Keyboard = () => {
           </NormalButton>
         </NormalRowContainer>
         <TallRowContainer>
-          <TallButton>
+          <TallButton onClick={() => onInput?.('4')}>
             <ButtonContent>
               <NumberText>4</NumberText>
               <AlphabetText>GHI</AlphabetText>
             </ButtonContent>
           </TallButton>
-          <TallButton>
+          <TallButton onClick={() => onInput?.('5')}>
             <ButtonContent>
               <NumberText>5</NumberText>
               <AlphabetText>JKL</AlphabetText>
             </ButtonContent>
           </TallButton>
-          <TallButton>
+          <TallButton onClick={() => onInput?.('6')}>
             <ButtonContent>
               <NumberText>6</NumberText>
               <AlphabetText>MNO</AlphabetText>
@@ -131,19 +159,19 @@ const Keyboard = () => {
           </TallButton>
         </TallRowContainer>
         <TallRowContainer>
-          <TallButton>
+          <TallButton onClick={() => onInput?.('7')}>
             <ButtonContent>
               <NumberText>7</NumberText>
               <AlphabetText>PQRS</AlphabetText>
             </ButtonContent>
           </TallButton>
-          <TallButton>
+          <TallButton onClick={() => onInput?.('8')}>
             <ButtonContent>
               <NumberText>8</NumberText>
               <AlphabetText>TUV</AlphabetText>
             </ButtonContent>
           </TallButton>
-          <TallButton>
+          <TallButton onClick={() => onInput?.('9')}>
             <ButtonContent>
               <NumberText>9</NumberText>
               <AlphabetText>WXYZ</AlphabetText>
@@ -151,23 +179,28 @@ const Keyboard = () => {
           </TallButton>
         </TallRowContainer>
         <NormalRowContainer>
-          <TransparentButton>
+          <TransparentButton onClick={() => onInput?.('+*#')}>
             <ButtonContent>
               <NumberText>+ * #</NumberText>
             </ButtonContent>
           </TransparentButton>
-          <NormalButton>
+          <NormalButton onClick={() => onInput?.('0')}>
             <ButtonContent>
               <NumberText>0</NumberText>
             </ButtonContent>
           </NormalButton>
-          <TransparentButton>
+          <TransparentButton onClick={() => onInput?.('backspace')}>
             <ButtonContent>
               <NumberText>⌫</NumberText>
             </ButtonContent>
           </TransparentButton>
         </NormalRowContainer>
       </KeypadContainer>
+      <BottomContainer>
+        <HomeIndicatorWrapper>
+          <HomeIndicator />
+        </HomeIndicatorWrapper>
+      </BottomContainer>
     </KeyboardContainer>
   );
 };

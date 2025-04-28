@@ -9,11 +9,13 @@ interface PrimaryButtonProps {
   onClick?: () => void;
   selected?: boolean;
   disabled?: boolean;
+  fontSize?: string;
 }
 
 interface StyledButtonProps {
   size: ButtonSize;
   selected: boolean;
+  fontSize?: string;
 }
 
 const StyledButton = styled.button<StyledButtonProps>`
@@ -30,32 +32,31 @@ const StyledButton = styled.button<StyledButtonProps>`
   color: var(--gray-900);
   background-color: var(--yellow-400);
   cursor: pointer;
+  width: 100%;
+  font-size: ${({ fontSize }) => fontSize || '24px'};
 
   /* Size Styles */
   ${({ size }) => size === 'xl' && css`
     min-width: 180px;
-    width: clamp(180px, 100%, 244px);
+    width: 100%;
     height: 170px;
     border-radius: var(--radius-m);
-    font-size: 24px;
     line-height: 32px;
   `}
 
   ${({ size }) => size === 'm' && css`
     min-width: 150px;
-    width: clamp(150px, 100%, 201px);
+    width: 100%;
     height: 124px;
     border-radius: var(--radius-s);
-    font-size: 16px;
     line-height: 24px;
   `}
 
   ${({ size }) => size === 's' && css`
     min-width: 120px;
-    width: clamp(120px, 100%, 189px);
+    width: 100%;
     height: 92px;
     border-radius: var(--radius-xs);
-    font-size: 14px;
     line-height: 20px;
   `}
 
@@ -79,6 +80,7 @@ export const PrimaryButton: React.FC<PrimaryButtonProps> = ({
   disabled = false,
   onClick,
   children,
+  fontSize,
 }) => {
   return (
     <StyledButton
@@ -86,6 +88,7 @@ export const PrimaryButton: React.FC<PrimaryButtonProps> = ({
       onClick={!disabled ? onClick : undefined}
       disabled={disabled}
       selected={selected}
+      fontSize={fontSize}
     >
       {children}
     </StyledButton>
