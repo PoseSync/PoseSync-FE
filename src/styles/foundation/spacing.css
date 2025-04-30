@@ -1,0 +1,60 @@
+:root {
+    /* === Gap === */
+    --gap-1: 8px;
+    --gap-2: 16px;
+    --gap-3: 24px;
+    --gap-4: 32px;
+    --gap-5: 36px;
+    --gap-6: 44px;
+    --gap-7: 52px;
+    --gap-8: 60px;
+    --gap-9: 68px;
+    --gap-10: 72px;
+    --gap-11: 80px;
+    --gap-12: 88px;
+    --gap-13: 96px;
+    --gap-14: 104px;
+    --gap-15: 112px;
+    --gap-16: 120px;
+    --gap-17: 128px;
+    --gap-18: 136px;
+  
+    /* === Radius === */
+    --radius-xs: 16px;
+    --radius-s: 20px;
+    --radius-m: 24px;
+    --radius-l: 28px;
+    --radius-xl: 32px;
+    --radius-2xl: 40px;
+  
+    /* === Padding === */
+    --padding-2xs: 24px;
+    --padding-xs: 28px;
+    --padding-s: 32px;
+    --padding-m: 40px;
+    --padding-l: 44px;
+    --padding-xl: 48px;
+    --padding-2xl: 52px;
+    --padding-3xl: 56px;
+  
+    /* === Margin === */
+    --margin-1: 8px;
+    --margin-2: 16px;
+    --margin-3: 24px;
+    --margin-4: 32px;
+    --margin-5: 36px;
+    --margin-6: 44px;
+    --margin-7: 52px;
+    --margin-8: 60px;
+    --margin-9: 68px;
+    --margin-10: 72px;
+    --margin-11: 80px;
+    --margin-12: 88px;
+    --margin-13: 96px;
+    --margin-14: 104px;
+    --margin-15: 112px;
+    --margin-16: 120px;
+    --margin-17: 128px;
+    --margin-18: 136px;
+  }
+  
