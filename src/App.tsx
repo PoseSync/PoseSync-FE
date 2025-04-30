@@ -5,6 +5,7 @@ import HeightInput from './pages/baiscInfo/HeightInput';
 import Measurement from './pages/Measurement';
 import SelectExercise from './pages/startexercises/SelectExercise';
 import ExerciseSetupPage from './pages/startexercises/ExerciseSetupPage';
+import IconTestPage from './pages/icon-test/IconTestPage';
 
 function App() {
   return (
@@ -16,6 +17,7 @@ function App() {
         <Route path="/measurement" element={<Measurement />} />
         <Route path="/startexercises" element={<SelectExercise />} />
         <Route path="/exercisesetup" element={<ExerciseSetupPage />} />
+        <Route path="/icon-test" element={<IconTestPage />} />
       </Routes>
     </BrowserRouter>
   );

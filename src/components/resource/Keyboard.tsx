@@ -1,5 +1,8 @@
 import '../../styles/foundation/index.css';
 import styled from 'styled-components';
+import UnionWhite from '../../assets/images/icon/union/Union-white.png';
+import StarWhite from '../../assets/images/icon/star/star-white.png';
+import NumbersignWhite from '../../assets/images/icon/numbersign/numbersign-white.png';
 
 const KeyboardContainer = styled.div`
   width: 1146px;
@@ -111,6 +114,12 @@ const HomeIndicator = styled.div`
   background: var(--white);
 `;
 
+const SpecialCharImage = styled.img`
+  width: 36.67px;
+  height: 36.67px;
+  object-fit: contain;
+`;
+
 interface KeyboardProps {
   onInput?: (value: string) => void;
 }
@@ -180,8 +189,10 @@ const Keyboard = ({ onInput }: KeyboardProps) => {
         </TallRowContainer>
         <NormalRowContainer>
           <TransparentButton onClick={() => onInput?.('+*#')}>
-            <ButtonContent>
-              <NumberText>+ * #</NumberText>
+            <ButtonContent style={{ flexDirection: 'row', gap: '18.34px', paddingTop: 0, justifyContent: 'center', width: '100%' }}>
+              <SpecialCharImage src={UnionWhite} alt="plus" />
+              <SpecialCharImage src={StarWhite} alt="star" />
+              <SpecialCharImage src={NumbersignWhite} alt="numbersign" />
             </ButtonContent>
           </TransparentButton>
           <NormalButton onClick={() => onInput?.('0')}>
