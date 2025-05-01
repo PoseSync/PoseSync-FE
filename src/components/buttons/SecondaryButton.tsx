@@ -30,7 +30,7 @@ const StyledButton = styled.button<StyledButtonProps>`
   padding-right: var(--padding-m);
   padding-left: var(--padding-m);
   color: var(--white);
-  background-color: var(--gray-800);
+  background-color: var(--gray-900);
   cursor: pointer;
   width: 100%;
   font-size: ${({ fontSize }) => fontSize || '24px'};
@@ -56,7 +56,7 @@ const StyledButton = styled.button<StyledButtonProps>`
   ${({ selected }) =>
     selected &&
     css`
-      background-color: var(--gray-900);
+       background-color: var(--gray-800);
     `}
 
   &:disabled {

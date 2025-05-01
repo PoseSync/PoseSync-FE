@@ -94,14 +94,11 @@ const Man1Image = styled.img`
 
 const DiagonalBg1 = styled.div`
   position: absolute;
-  width: 1377.5px;
-  height: 40px;
+  width: 1377.5px;  
+  height: 1919px;  
   left: 1133px;
-  top: 200px;
-  background: linear-gradient(205.36deg, #F2FFCD -11.87%, rgba(255,255,255,0) 85.56%);
-  opacity: 0.7;
-  transform: rotate(-25deg);
-  z-index: 0;
+  top: -273px;
+  background: linear-gradient(225deg, #F2FFCD -11.87%, rgba(255, 255, 255, 0) 85.56%);
 `;
 const DiagonalBg2 = styled.div`
   position: absolute;

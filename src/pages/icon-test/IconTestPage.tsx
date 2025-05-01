@@ -4,6 +4,7 @@ import { Union } from '../../components/iconography/icons/Union';
 import { Minus } from '../../components/iconography/icons/Minus';
 import { X } from '../../components/iconography/icons/x';
 import { TextBtnWithIcon } from '../../components/buttons/TextBtnWithIcon';
+import Modal from '../../components/feedback/Modal';
 
 const TestContainer = styled.div`
   width: 100vw;
@@ -103,6 +104,14 @@ const IconTestPage = () => {
           <TextBtnWithIcon size="m" disabled>비활성화</TextBtnWithIcon>
         </div>
       </div>
+
+      <h1 style={{ color: 'white' }}>Modal Test</h1>
+      <Modal 
+        subtitle="Subtitle_1" 
+        body="Body_1" 
+        leftButtonText="취소" 
+        rightButtonText="확인"
+      />
     </TestContainer>
   );
 };
