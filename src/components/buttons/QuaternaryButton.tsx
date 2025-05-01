@@ -31,11 +31,12 @@ const StyledButton = styled.button<StyledButtonProps>`
   background-color: transparent;
   cursor: pointer;
   color: var(--gray-900);
+  width: 100%;
 
   /* Size Styles */
   ${({ size }) => size === 'xl' && css`
     min-width: 180px;
-    width: clamp(180px, 100%, 244px);
+    width: 100%;
     height: 170px;
     border-radius: var(--radius-m);
     font-size: 24px;
@@ -44,11 +45,11 @@ const StyledButton = styled.button<StyledButtonProps>`
 
   ${({ size }) => size === 'm' && css`
     min-width: 150px;
-    width: clamp(150px, 100%, 201px);
+    width: 100%;
     height: 124px;
     border-radius: var(--radius-s);
-    font-size: 16px;
-    line-height: 24px;
+    font-size: 24px;
+    line-height: 32px;
   `}
 
   /* State Styles */

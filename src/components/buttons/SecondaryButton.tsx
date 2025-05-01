@@ -56,7 +56,7 @@ const StyledButton = styled.button<StyledButtonProps>`
   ${({ selected }) =>
     selected &&
     css`
-      background-color: var(--gray-800);
+       background-color: var(--gray-800);
     `}
 
   &:disabled {

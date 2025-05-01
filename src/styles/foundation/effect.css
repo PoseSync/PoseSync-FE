@@ -1,0 +1,13 @@
+:root {
+  /* === Main Carasoul Effect === */
+  --effect-main-carasoul-inner-top: -4px -4px 4px 0px var(--gray-opacity-30) inset;
+  --effect-main-carasoul-inner-bottom: 4px 4px 4px 0px var(--yellow-opacity-10) inset;
+  --effect-main-carasoul-outer: 0px 4px 20px 0px var(--yellow-300);
+
+  /* === Sub Carasoul Effect === */
+  --effect-sub-carasoul-outer: 0px 4px 24px 0px var(--gray-opacity-50);
+  --effect-sub-carasoul-inner: 0px 4px 12px 0px var(--gray-opacity-10) inset;
+
+  /* === Gray Gradient === */
+  --effect-gray-gradient: radial-gradient(60.36% 60.36% at 50% 50%, var(--gray-600) 0%, var(--gray-700) 100%);
+}
