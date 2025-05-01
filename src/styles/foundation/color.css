@@ -1,0 +1,92 @@
+:root {
+    /* === Gray === */
+    --gray-0: #ECEFF5;
+    --gray-100: #DEE2EA;
+    --gray-200: #C3CBD2;
+    --gray-300: #A8B0BD;
+    --gray-400: #8C9199;
+    --gray-500: #71767E;
+    --gray-600: #50545B;
+    --gray-700: #383C42;
+    --gray-800: #24272B;
+    --gray-900: #0B0C0D;
+    
+    /* === Gray Opacity === */
+    --gray-opacity-10: rgba(56, 60, 66, 0.1);
+    --gray-opacity-20: rgba(56, 60, 66, 0.2);
+    --gray-opacity-30: rgba(56, 60, 66, 0.3);
+    --gray-opacity-40: rgba(56, 60, 66, 0.4);
+    --gray-opacity-50: rgba(56, 60, 66, 0.5);
+    --gray-opacity-60: rgba(56, 60, 66, 0.6);
+
+    /* === Blue === */
+    --blue-0: #E0EBFF;
+    --blue-100: #B7D0FF;
+    --blue-200: #1566FF;
+    --blue-300: #054FDA;
+    --blue-400: #0040B7;
+    --blue-500: #003CAD;
+    --blue-600: #09368C;
+    --blue-700: #002772;
+    --blue-800: #021C4C;
+    --blue-900: #001640;
+  
+    /* === Yellow === */
+    --yellow-0: #FBFFEF;
+    --yellow-100: #F2FFCD;
+    --yellow-200: #E4FD9F;
+    --yellow-300: #D2F868;
+    --yellow-400: #C9F353;
+    --yellow-500: #B1E02D;
+    --yellow-600: #95BF21;
+    --yellow-700: #77991A;
+    --yellow-800: #5A7314;
+    --yellow-900: #46590F;
+
+    /* === Yellow Opacity === */
+    --yellow-opacity-10: #C9F3531A;
+    --yellow-opacity-20: #C9F35333;
+    --yellow-opacity-30: #C9F3534D;
+    --yellow-opacity-40: #C9F35366;
+    --yellow-opacity-50: #C9F35380;
+  
+    /* === Red === */
+    --red-0: #FEEBEB;
+    --red-100: #FDE1E1;
+    --red-200: #FBC1C1;
+    --red-300: #F13838;
+    --red-400: #D93232;
+    --red-500: #C12D2D;
+    --red-600: #B52A2A;
+    --red-700: #912222;
+    --red-800: #6C1919;
+    --red-900: #541414;
+
+    /* === Purple === */
+    --purple-0: #F0EBFF;
+    --purple-100: #DDD3FF;
+    --purple-200: #8E81FF;
+    --purple-300: #774FFB;
+    --purple-400: #5D3EE3;
+    --purple-500: #522ECA;
+    --purple-600: #3F1FA8;
+    --purple-700: #381D8D;
+    --purple-800: #2B1672;
+    --purple-900: #241458;
+
+    /* === Pink === */
+    --pink-0: #FFDDDE;
+    --pink-100: #FFCDD7;
+    --pink-200: #FFAEbf;
+    --pink-300: #FF89A2;
+    --pink-400: #FF6888;
+    --pink-500: #F14A6D;
+    --pink-600: #F42855;
+    --pink-700: #DF123D;
+    --pink-800: #C30E34;
+    --pink-900: #B10F31;
+
+    /* === White === */
+    --white: #FFFFFF;
+  }
+  
