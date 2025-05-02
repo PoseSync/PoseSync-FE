@@ -1,5 +1,6 @@
 import styled from 'styled-components';
 import '../../styles/foundation/index.css';
+import { useState } from 'react';
 
 type CardStatus = 'default' | 'focused' | 'selected';
 
@@ -9,14 +10,13 @@ interface ExerciseCardProps {
   imageAlt?: string;
   subtitle?: string;
   bodyText?: string;
+  onClick?: () => void;
 }
 
 const CardContainer = styled.div<ExerciseCardProps>`
   width: 880px;
   height: 990px;
   position: relative;
-  top: 20px;
-  left: 20px;
   border-radius: var(--radius-2xl);
   gap: 10px;
   background: ${({ status }) => {
@@ -41,21 +41,27 @@ const CardContainer = styled.div<ExerciseCardProps>`
   display: flex;
   flex-direction: column;
   align-items: center;
+  transform: scale(0.85);
+  transition: all 0.3s ease;
+
+  &:hover {
+    transform: scale(0.87);
+  }
 `;
 
 const ContentContainer = styled.div`
-  width: 692px;
+  width: 100%;
   height: 798px;
-  gap: 10px;
   padding: var(--padding-3xl);
   display: flex;
   flex-direction: column;
   align-items: center;
+  gap: var(--gap-3);
 `;
 
 const ImageContainer = styled.div<{ status?: CardStatus }>`
-  width: 530px;
-  height: 530px;
+  width: 600px;
+  height: 600px;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -67,8 +73,8 @@ const ImageContainer = styled.div<{ status?: CardStatus }>`
     position: absolute;
     top: 50%;
     left: 50%;
-    width: 450px;
-    height: 450px;
+    width: 520px;
+    height: 520px;
     transform: translate(-50%, -50%);
     background: ${({ status }) => {
       switch (status) {
@@ -88,14 +94,13 @@ const ImageContainer = styled.div<{ status?: CardStatus }>`
 `;
 
 const StyledImage = styled.img`
-  width: 505.08px;
-  height: 505.08px;
-  position: absolute;
-  top: 12.46px;
-  left: 12.46px;
+  width: 580px;
+  height: 580px;
+  position: relative;
   user-select: none;
   pointer-events: none;
   -webkit-user-drag: none;
+  object-fit: contain;
 `;
 
 const TextContainer = styled.div`
@@ -160,19 +165,33 @@ const Body2Text = styled.p<{ status?: CardStatus }>`
   margin: 0;
 `;
 
-const ExerciseCard: React.FC<ExerciseCardProps> = ({ status = 'default', imageSrc, imageAlt, subtitle, bodyText }) => {
+const ExerciseCard: React.FC<ExerciseCardProps> = ({ status = 'default', imageSrc, imageAlt, subtitle, bodyText, onClick }) => {
+  const [isSelected, setIsSelected] = useState(false);
+
+  const handleClick = () => {
+    if (onClick) {
+      setIsSelected(true);
+      setTimeout(() => {
+        onClick();
+      }, 500);
+    }
+  };
+
   return (
-    <CardContainer status={status}>
+    <CardContainer 
+      status={isSelected ? 'selected' : status} 
+      onClick={handleClick}
+    >
       <ContentContainer>
-        <ImageContainer status={status}>
+        <ImageContainer status={isSelected ? 'selected' : status}>
           {imageSrc && <StyledImage src={imageSrc} alt={imageAlt || '운동 이미지'} />}
         </ImageContainer>
         <TextContainer>
           <SubtitleContainer>
-            {subtitle && <SubtitleText status={status}>{subtitle}</SubtitleText>}
+            {subtitle && <SubtitleText status={isSelected ? 'selected' : status}>{subtitle}</SubtitleText>}
           </SubtitleContainer>
           <Body2Container>
-            {bodyText && <Body2Text status={status}>{bodyText}</Body2Text>}
+            {bodyText && <Body2Text status={isSelected ? 'selected' : status}>{bodyText}</Body2Text>}
           </Body2Container>
         </TextContainer>
       </ContentContainer>

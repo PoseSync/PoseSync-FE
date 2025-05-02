@@ -1,10 +1,14 @@
 import styled from 'styled-components';
+import { useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import Gnb from '../../components/gnb/Gnb';
 // import TextButton from '../../components/buttons/TextBtn';
 import { TertiaryButton } from '../../components/buttons/TertiaryButton';
 import { PrimaryButton } from '../../components/buttons/PrimaryButton';
+import { SecondaryButton } from '../../components/buttons/SecondaryButton';
 import TextButton from '../../components/buttons/TextBtn';
 import { Stepper } from '../../components/inputs/Stepper';
+import { Exercise } from '../../data/exercises';
 
 const FullScreen = styled.div`
   width: 3840px;
@@ -76,8 +80,18 @@ const ImageContainer = styled.div`
   width: 1470px;
   height: 1264px;
   border-radius: var(--radius-xl);
-  background: var(--gray-800);
+  background: var(--effect-gray-gradient);
   color: var(--white);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+`;
+
+const ExerciseImage = styled.img`
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 `;
 
 const RightContainer = styled.div`
@@ -91,20 +105,43 @@ const RightContainer = styled.div`
 `;
 
 const SetsContainer = styled.div`
-  width: 1470px;
-  height: 448px;
+  width: 1486px;
+  height: 1000px;
   display: flex;
   flex-direction: column;
   gap: var(--gap-5);
   align-items: flex-end;
+  overflow-y: auto;
+  padding-right: var(--padding-m);
+  margin-right: -16px;
+
+  /* 스크롤바 스타일링 */
+  &::-webkit-scrollbar {
+    width: 16px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: var(--gray-700);
+    border-radius: 4px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: var(--gray-600);
+    border-radius: 4px;
+  }
+
+  &::-webkit-scrollbar-thumb:hover {
+    background: var(--gray-500);
+  }
 `;
 
 const SetItemContainer = styled.div`
-  width: 1470px;
-  height: 356px;
+  width: 1454px;
+  min-height: 356px;
   display: flex;
   gap: var(--gap-11);
   align-items: center;
+  flex-shrink: 0;
 `;
 
 const SetText = styled.div`
@@ -154,42 +191,127 @@ const ButtonWrapper = styled.div`
 `;
 
 const ExerciseSetupPage = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const exercise = location.state?.exercise as Exercise;
+  
+  // 세트별 무게와 횟수를 관리하는 상태
+  interface SetData {
+    weight: number;
+    reps: number;
+  }
+  
+  const [sets, setSets] = useState<SetData[]>([{ weight: 5, reps: 5 }]);
+
+  const handleAddSet = () => {
+    setSets([...sets, { weight: 5, reps: 5 }]);
+  };
+
+  const handleRemoveSet = (index: number) => {
+    if (sets.length > 1) {
+      const newSets = [...sets];
+      newSets.splice(index, 1);
+      setSets(newSets);
+    }
+  };
+
+  const handleWeightChange = (value: number, index: number) => {
+    const newSets = [...sets];
+    newSets[index].weight = value;
+    setSets(newSets);
+  };
+
+  const handleRepsChange = (value: number, index: number) => {
+    const newSets = [...sets];
+    newSets[index].reps = value;
+    setSets(newSets);
+  };
+
+  const handleGoToSelectExercise = () => {
+    navigate('/startexercises');
+  };
+
+  console.log('Location state:', location.state);
+  console.log('Exercise:', exercise);
+
+  if (!exercise) {
+    return (
+      <FullScreen>
+        <Gnb />
+        <Container>
+          <MainContainer>
+            <TitleText>운동을 선택해주세요</TitleText>
+          </MainContainer>
+        </Container>
+      </FullScreen>
+    );
+  }
+
   return (
     <FullScreen>
       <Gnb />
       <Container>
-      <MainContainer>
-        <LeftContainer>
-          <TitleContainer>
-            <TitleText>동적 설정</TitleText>
-            <SubTitleContainer>동적 설정</SubTitleContainer>
-          </TitleContainer>
-          <ImageContainer>
-            이미지 동적 설정 - 이미지 받으면 data에 이미지 추가하고 진행, 색 설정 삭제
-          </ImageContainer>
-        </LeftContainer>
-        <RightContainer>
-          <SetsContainer>
-            <TextButton>+ 추가하기</TextButton>
-            <SetItemContainer>
-              <SetText>1 세트</SetText>
-              <VolumeContainer>
-                <StepperGroup>
-                  <Stepper value={5} min={0} max={100} unit="kg" onChange={() => {}} />
-                  <Stepper value={5} min={0} max={100} unit="회" onChange={() => {}} />
-                </StepperGroup>
-                <ButtonGroup>
-                  <PrimaryButton size="s" disabled fontSize="32px">취소하기</PrimaryButton>
-                </ButtonGroup>
-              </VolumeContainer>
-            </SetItemContainer>
-          </SetsContainer>
-          <ButtonWrapper>
-            <TertiaryButton size="xl" fontSize="54px">다른 운동하러 가기</TertiaryButton>
-            <PrimaryButton size="xl" fontSize="54px">운동하러 가기</PrimaryButton>
-          </ButtonWrapper>
-        </RightContainer>
-      </MainContainer>
+        <MainContainer>
+          <LeftContainer>
+            <TitleContainer>
+              <TitleText>{exercise.name}</TitleText>
+              <SubTitleContainer>{exercise.detailDescription}</SubTitleContainer>
+            </TitleContainer>
+            <ImageContainer>
+              <ExerciseImage src={exercise.detailImage} alt={exercise.name} />
+            </ImageContainer>
+          </LeftContainer>
+          <RightContainer>
+            <SetsContainer>
+              <TextButton onClick={handleAddSet}>+ 추가하기</TextButton>
+              {sets.map((set, index) => (
+                <SetItemContainer key={index}>
+                  <SetText>{index + 1} 세트</SetText>
+                  <VolumeContainer>
+                    <StepperGroup>
+                      <Stepper 
+                        value={set.weight} 
+                        min={0} 
+                        max={100} 
+                        step={5} 
+                        unit="kg" 
+                        onChange={(value) => handleWeightChange(value, index)} 
+                      />
+                      <Stepper 
+                        value={set.reps} 
+                        min={0} 
+                        max={100} 
+                        step={1} 
+                        unit="회" 
+                        onChange={(value) => handleRepsChange(value, index)} 
+                      />
+                    </StepperGroup>
+                    <ButtonGroup>
+                      <SecondaryButton 
+                        size="s" 
+                        disabled={sets.length === 1} 
+                        fontSize="32px"
+                        onClick={() => handleRemoveSet(index)}
+                      >
+                        취소하기
+                      </SecondaryButton>
+                    </ButtonGroup>
+                  </VolumeContainer>
+                </SetItemContainer>
+              ))}
+            </SetsContainer>
+            <ButtonWrapper>
+              <TertiaryButton 
+                size="xl" 
+                fontSize="54px"
+                onClick={handleGoToSelectExercise}
+              >
+                다른 운동하러 가기
+              </TertiaryButton>
+              <PrimaryButton size="xl" fontSize="54px">운동하러 가기</PrimaryButton>
+            </ButtonWrapper>
+          </RightContainer>
+        </MainContainer>
       </Container>
     </FullScreen>
   );

@@ -1,7 +1,7 @@
 import styled, { css } from 'styled-components';
 import '../../styles/foundation/index.css';
 
-type ButtonSize = 'xl' | 'm';
+type ButtonSize = 'xl' | 'm' | 's';
 
 interface SecondaryButtonProps {
   size?: ButtonSize;
@@ -30,7 +30,7 @@ const StyledButton = styled.button<StyledButtonProps>`
   padding-right: var(--padding-m);
   padding-left: var(--padding-m);
   color: var(--white);
-  background-color: var(--gray-800);
+  background-color: var(--gray-900);
   cursor: pointer;
   width: 100%;
   font-size: ${({ fontSize }) => fontSize || '24px'};
@@ -52,11 +52,19 @@ const StyledButton = styled.button<StyledButtonProps>`
     line-height: 24px;
   `}
 
+  ${({ size }) => size === 's' && css`
+    min-width: 100px;
+    width: 100%;
+    height: 92px;
+    border-radius: var(--radius-xs);
+    line-height: 24px;
+  `}
+
   /* State Styles */
   ${({ selected }) =>
     selected &&
     css`
-      background-color: var(--gray-900);
+       background-color: var(--gray-700);
     `}
 
   &:disabled {

@@ -1,4 +1,5 @@
 import styled from 'styled-components';
+import { useNavigate } from 'react-router-dom';
 import Gnb from '../../components/gnb/Gnb';
 import { exercises } from '../../data/exercises';
 import Carousel from '../../components/contents/Carousel';
@@ -68,11 +69,14 @@ const SubTitleText = styled.div`
 `;
 
 const SelectExercise = () => {
+  const navigate = useNavigate();
+  
   const carouselCards = exercises.map((ex) => ({
     id: ex.name,
     title: ex.name,
     description: ex.cardDescription,
     imageSrc: ex.image,
+    onClick: () => navigate('/exercisesetup', { state: { exercise: ex } })
   }));
 
   return (

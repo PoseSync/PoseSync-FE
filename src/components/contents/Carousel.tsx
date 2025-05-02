@@ -10,6 +10,7 @@ interface CarouselProps {
     title: string;
     description: string;
     imageSrc: string;
+    onClick?: () => void;
   }[];
 }
 
@@ -35,15 +36,31 @@ const SliderContainer = styled.div`
     display: flex;
     justify-content: center;
     align-items: center;
+    opacity: 0.3;
+    transition: all 0.5s ease;
+    transform: scale(0.723); /* 635.8/880 ≈ 0.723 */
+    width: 635.8px;
+    height: 715.28px;
+  }
+  .keen-slider__slide.active {
+    opacity: 1;
+    transform: scale(1);
+    width: 880px;
+    height: 990px;
+    z-index: 3;
+  }
+  .keen-slider__slide.semi-active {
+    opacity: 0.6;
+    transform: scale(0.85); /* 748/880 ≈ 0.85 */
+    width: 748px;
+    height: 841.5px;
+    z-index: 2;
   }
 `;
 
 const Carousel: React.FC<CarouselProps> = ({ cards }) => {
-  // 가운데 인덱스 계산
   const initialIndex = Math.floor(cards.length / 2);
   const [currentSlide, setCurrentSlide] = useState(initialIndex);
-  const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
-  const [loaded, setLoaded] = useState(false);
 
   const [sliderRef, instanceRef] = useKeenSlider<HTMLDivElement>({
     initial: initialIndex,
@@ -51,25 +68,21 @@ const Carousel: React.FC<CarouselProps> = ({ cards }) => {
     mode: "snap",
     slides: {
       perView: 3,
-      spacing: 15,
+      spacing: -500,
       origin: "center",
     },
     slideChanged(slider) {
       setCurrentSlide(slider.track.details.rel);
     },
     created() {
-      setLoaded(true);
     },
   });
 
-  const getCardStatus = (index: number, cardId: string): 'default' | 'focused' | 'selected' => {
-    if (cardId === selectedCardId) return 'selected';
-    if (index === currentSlide) return 'focused';
-    return 'default';
-  };
-
-  const handleCardClick = (cardId: string) => {
-    setSelectedCardId(cardId === selectedCardId ? null : cardId);
+  const getSlideClass = (index: number) => {
+    const distance = Math.abs(index - currentSlide);
+    if (distance === 0) return 'active';
+    if (distance === 1) return 'semi-active';
+    return '';
   };
 
   return (
@@ -79,12 +92,17 @@ const Carousel: React.FC<CarouselProps> = ({ cards }) => {
           {cards.map((card, index) => (
             <div 
               key={card.id} 
-              className="keen-slider__slide"
-              onClick={() => handleCardClick(card.id)}
+              className={`keen-slider__slide ${getSlideClass(index)}`}
+              onClick={() => {
+                instanceRef.current?.moveToIdx(index);
+                setTimeout(() => {
+                  if (card.onClick) card.onClick();
+                }, 300);
+              }}
               style={{ cursor: 'pointer' }}
             >
               <ExerciseCard
-                status={getCardStatus(index, card.id)}
+                status={index === currentSlide ? 'focused' : 'default'}
                 imageSrc={card.imageSrc}
                 imageAlt={card.title}
                 subtitle={card.title}
@@ -93,19 +111,6 @@ const Carousel: React.FC<CarouselProps> = ({ cards }) => {
             </div>
           ))}
         </div>
-        {loaded && instanceRef.current && (
-          <div className="dots">
-            {Array.from(Array(cards.length).keys()).map((idx) => (
-              <button
-                key={idx}
-                onClick={() => {
-                  instanceRef.current?.moveToIdx(idx);
-                }}
-                className={"dot" + (currentSlide === idx ? " active" : "")}
-              />
-            ))}
-          </div>
-        )}
       </SliderContainer>
     </CarouselWrapper>
   );
