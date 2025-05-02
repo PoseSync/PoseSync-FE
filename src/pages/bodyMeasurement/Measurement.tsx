@@ -1,4 +1,4 @@
-import { PrimaryButton } from '../components/buttons/PrimaryButton';
+import { PrimaryButton } from '../../components/buttons/PrimaryButton';
 import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 
