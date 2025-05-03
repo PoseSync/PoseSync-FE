@@ -8,6 +8,8 @@ import ExerciseSetupPage from './pages/startexercises/ExerciseSetupPage';
 import IconTestPage from './pages/icon-test/IconTestPage';
 import Completion from './pages/completedWorkout/Completion';
 import ExerciseResult from './pages/completedWorkout/ExerciseResult';
+import MeasurementResults from './pages/bodyMeasurement/Measurement-results';
+
 
 function App() {
   return (
@@ -22,6 +24,7 @@ function App() {
         <Route path="/icon-test" element={<IconTestPage />} />
         <Route path="/completed" element={<Completion />} />
         <Route path="/exercise-result" element={<ExerciseResult />} />
+        <Route path="/measurement-results" element={<MeasurementResults />} />
       </Routes>
     </BrowserRouter>
   );
