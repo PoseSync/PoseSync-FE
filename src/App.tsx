@@ -6,9 +6,10 @@ import Measurement from './pages/bodyMeasurement/Measurement';
 import MeasurementResults from './pages/bodyMeasurement/Measurement-results';
 import SelectExercise from './pages/startexercises/SelectExercise';
 import ExerciseSetupPage from './pages/startexercises/ExerciseSetupPage';
-import IconTestPage from './pages/icon-test/IconTestPage';
 import Completion from './pages/completedWorkout/Completion';
 import ExerciseResult from './pages/completedWorkout/ExerciseResult';
+
+import IconTestPage from './pages/icon-test/IconTestPage';
 
 
 function App() {
@@ -22,9 +23,10 @@ function App() {
         <Route path="/measurement-results" element={<MeasurementResults />} />
         <Route path="/startexercises" element={<SelectExercise />} />
         <Route path="/exercisesetup" element={<ExerciseSetupPage />} />
-        <Route path="/icon-test" element={<IconTestPage />} />
         <Route path="/completed" element={<Completion />} />
         <Route path="/exercise-result" element={<ExerciseResult />} />
+
+        <Route path="/icon-test" element={<IconTestPage />} />
         
       </Routes>
     </BrowserRouter>

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import Gnb from '../../components/gnb/Gnb';
 import { exercises } from '../../data/exercises';
 import Carousel from '../../components/contents/Carousel';
+import { useExerciseStore } from '../../store/useExerciseStore';
 
 const FullScreen = styled.div`
   width: 3840px;
@@ -70,13 +71,19 @@ const SubTitleText = styled.div`
 
 const SelectExercise = () => {
   const navigate = useNavigate();
+  const setSelectedExercise = useExerciseStore(state => state.setSelectedExercise);
   
   const carouselCards = exercises.map((ex) => ({
     id: ex.name,
     title: ex.name,
     description: ex.cardDescription,
     imageSrc: ex.image,
-    onClick: () => navigate('/exercisesetup', { state: { exercise: ex } })
+    onClick: () => {
+      setSelectedExercise(ex);
+      setTimeout(() => {
+        navigate('/exercisesetup');
+      }, 500);
+    }
   }));
 
   return (

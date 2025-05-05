@@ -68,7 +68,7 @@ const Carousel: React.FC<CarouselProps> = ({ cards }) => {
     mode: "snap",
     slides: {
       perView: 3,
-      spacing: -500,
+      spacing: -400,
       origin: "center",
     },
     slideChanged(slider) {

@@ -1,6 +1,6 @@
 import styled from 'styled-components';
 import { useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import Gnb from '../../components/gnb/Gnb';
 // import TextButton from '../../components/buttons/TextBtn';
 import { TertiaryButton } from '../../components/buttons/TertiaryButton';
@@ -8,7 +8,7 @@ import { PrimaryButton } from '../../components/buttons/PrimaryButton';
 import { SecondaryButton } from '../../components/buttons/SecondaryButton';
 import TextButton from '../../components/buttons/TextBtn';
 import { Stepper } from '../../components/inputs/Stepper';
-import { Exercise } from '../../data/exercises';
+import { useExerciseStore } from '../../store/useExerciseStore';
 
 const FullScreen = styled.div`
   width: 3840px;
@@ -191,9 +191,9 @@ const ButtonWrapper = styled.div`
 `;
 
 const ExerciseSetupPage = () => {
-  const location = useLocation();
   const navigate = useNavigate();
-  const exercise = location.state?.exercise as Exercise;
+  const exercise = useExerciseStore(state => state.selectedExercise);
+  const setSetsGlobal = useExerciseStore(state => state.setSets);
   
   // 세트별 무게와 횟수를 관리하는 상태
   interface SetData {
@@ -231,7 +231,11 @@ const ExerciseSetupPage = () => {
     navigate('/startexercises');
   };
 
-  console.log('Location state:', location.state);
+  const handleGoToCompletion = () => {
+    setSetsGlobal(sets);
+    navigate('/completed');
+  };
+
   console.log('Exercise:', exercise);
 
   if (!exercise) {
@@ -308,7 +312,7 @@ const ExerciseSetupPage = () => {
               >
                 다른 운동하러 가기
               </TertiaryButton>
-              <PrimaryButton size="xl" fontSize="54px">운동하러 가기</PrimaryButton>
+              <PrimaryButton size="xl" fontSize="54px" onClick={handleGoToCompletion}>운동하러 가기</PrimaryButton>
             </ButtonWrapper>
           </RightContainer>
         </MainContainer>

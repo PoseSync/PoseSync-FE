@@ -3,6 +3,7 @@ import styled from 'styled-components';
 import Gnb from '../../components/gnb/Gnb';
 import CheckImg from '../../assets/images/items/check.png';
 import XImg from '../../assets/images/items/x.png';
+import { useExerciseStore } from '../../store/useExerciseStore';
 
 const Container = styled.div`
   width: 3840px;
@@ -138,6 +139,8 @@ const ItemContainer = styled.div`
 `;
 
 const ExerciseResult = () => {
+  const exercise = useExerciseStore(state => state.selectedExercise);
+  const sets = useExerciseStore(state => state.sets);
   return (
     <Container>
       <Gnb />
@@ -145,44 +148,33 @@ const ExerciseResult = () => {
         <MainBox>
             <LeftContainer>
                 <TextContainer>
-                    동적 설정
+                    {exercise ? exercise.name : ''}
                 </TextContainer>
                 <ImageContainer>
-                    동적 이미지 설정
+                    {exercise && (
+                      <img src={exercise.detailImage} alt={exercise.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    )}
                 </ImageContainer>
             </LeftContainer>
             <RightContainer>
                 <SetBox>
-                    <SetItem>
-                        <SetItemDetail>
-                            <SetKgCount>
-                                <Set>
-                                    동적
-                                </Set>
-                                <SetVolume>
-                                    5 kg  x  5 회
-                                </SetVolume>
-                            </SetKgCount>
-                        </SetItemDetail>
-                        <ItemContainer>
-                            <img src={CheckImg} alt="체크 표시" style={{ width: '80px', height: '80px' }} />
-                        </ItemContainer>
+                  {sets.map((set, index) => (
+                    <SetItem key={index}>
+                      <SetItemDetail>
+                        <SetKgCount>
+                          <Set>
+                            {index + 1}세트
+                          </Set>
+                          <SetVolume>
+                            {set.weight} kg  x  {set.reps} 회
+                          </SetVolume>
+                        </SetKgCount>
+                      </SetItemDetail>
+                      <ItemContainer>
+                        <img src={CheckImg} alt="체크 표시" style={{ width: '80px', height: '80px' }} />
+                      </ItemContainer>
                     </SetItem>
-                    <SetItem>
-                        <SetItemDetail>
-                            <SetKgCount>
-                                <Set>
-                                    동적
-                                </Set>
-                                <SetVolume>
-                                    5 kg  x  5 회
-                                </SetVolume>
-                            </SetKgCount>
-                        </SetItemDetail>
-                        <ItemContainer>
-                            <img src={XImg} alt="체크 표시" style={{ width: '80px', height: '80px' }} />
-                        </ItemContainer>
-                    </SetItem>
+                  ))}
                 </SetBox>
 
             </RightContainer>
