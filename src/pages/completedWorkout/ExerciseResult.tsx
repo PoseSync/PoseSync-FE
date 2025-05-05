@@ -2,7 +2,7 @@ import React from 'react';
 import styled from 'styled-components';
 import Gnb from '../../components/gnb/Gnb';
 import CheckImg from '../../assets/images/items/check.png';
-import XImg from '../../assets/images/items/x.png';
+//import XImg from '../../assets/images/items/x.png';
 import { useExerciseStore } from '../../store/useExerciseStore';
 
 const Container = styled.div`
