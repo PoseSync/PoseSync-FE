@@ -6,6 +6,11 @@ import { useNavigate } from 'react-router-dom';
 import Man2 from '../../assets/images/homepage/man2.png';
 import Girl1 from '../../assets/images/homepage/girl1.png';
 import Man1 from '../../assets/images/homepage/man1.png';
+import Rectangle1 from '../../assets/images/homepage/Rectangle1.png';
+import Rectangle2 from '../../assets/images/homepage/Rectangle2.png';
+import Rectangle3 from '../../assets/images/homepage/Rectangle3.png';
+import Rectangle4 from '../../assets/images/homepage/Rectangle4.png';
+import Rectangle5 from '../../assets/images/homepage/Rectangle5.png';
 
 const HomeContainer = styled.div`
   width: 3840px;
@@ -78,7 +83,6 @@ const Girl1Image = styled.img`
   left: 2620.41px;
   top: 343.13px;
   object-fit: contain;
-  transform: scaleX(-1);
   pointer-events: none;
 `;
 
@@ -92,68 +96,65 @@ const Man1Image = styled.img`
   pointer-events: none;
 `;
 
-const DiagonalBg1 = styled.div`
+const RectangleBlur1 = styled.div`
   position: absolute;
-  width: 1377.5px;  
-  height: 1919px;  
-  left: 1133px;
+  width: 1377.5009765625px;
+  height: 1919px;
   top: -273px;
-  background: linear-gradient(225deg, #F2FFCD -11.87%, rgba(255, 255, 255, 0) 85.56%);
+  left: 1133px;
 `;
-const DiagonalBg2 = styled.div`
+
+const RectangleBlur2 = styled.div`
   position: absolute;
-  width: 1583.5px;
-  height: 40px;
-  left: 1438px;
-  top: 400px;
-  background: radial-gradient(50% 50% at 50% 50%, #E4FD9F 0%, rgba(242,255,205,0) 100%);
-  opacity: 0.5;
-  transform: rotate(-25deg);
-  z-index: 0;
+  width: 1583.498046875px;
+  height: 1914px;
+  top: -484.5px;
+  left: 1638px;
 `;
-const DiagonalBg3 = styled.div`
+
+const RectangleBlur3 = styled.div`
   position: absolute;
-  width: 2986.5px;
-  height: 40px;
+  width: 2986.49853515625px;
+  height: 2395px;
+  top: -101.5px;
   left: 1225px;
-  top: 600px;
-  background: radial-gradient(88.04% 88.04% at 56.57% 41.67%, #F2FFCD 0%, rgba(210,248,104,0) 100%);
-  opacity: 0.4;
-  transform: rotate(-25deg);
-  z-index: 0;
 `;
-const DiagonalBg4 = styled.div`
+
+const RectangleBlur4 = styled.div`
   position: absolute;
-  width: 1583.5px;
-  height: 40px;
+  width: 1583.498046875px;
+  height: 1914px;
+  top: 588px;
   left: 2561px;
-  top: 800px;
-  background: radial-gradient(100% 100% at 91.22% 0%, #E4FD9F 0%, rgba(242,255,205,0) 95.13%);
-  opacity: 0.4;
-  transform: rotate(-25deg);
-  z-index: 0;
 `;
-const DiagonalBg5 = styled.div`
+
+const RectangleBlur5 = styled.div`
   position: absolute;
-  width: 1315.94px;
-  height: 40px;
+  width: 1315.9415283203125px;
+  height: 1919px;
+  top: 65px;
   left: 3282px;
-  top: 1000px;
-  background: radial-gradient(39.24% 39.24% at 50% 50%, #F2FFCD 0%, rgba(255,255,255,0) 100%);
-  opacity: 0.3;
-  transform: rotate(-25deg);
-  z-index: 0;
 `;
 
 const Home = () => {
   const navigate = useNavigate();
   return (
     <HomeContainer>
-      <DiagonalBg1 />
-      <DiagonalBg2 />
-      <DiagonalBg3 />
-      <DiagonalBg4 />
-      <DiagonalBg5 />
+      <RectangleBlur1>
+        <img src={Rectangle1} alt="Rectangle1"/>
+      </RectangleBlur1>
+      <RectangleBlur2>
+        <img src={Rectangle2} alt="Rectangle2"/>
+      </RectangleBlur2>
+      <RectangleBlur3>
+        <img src={Rectangle3} alt="Rectangle3"/>
+      </RectangleBlur3>
+      <RectangleBlur4>
+        <img src={Rectangle4} alt="Rectangle4"/>
+      </RectangleBlur4>
+      <RectangleBlur5>
+        <img src={Rectangle5} alt="Rectangle5"/>
+      </RectangleBlur5>
       <MainBox>
         <TitleContainer>
           <Logo />
