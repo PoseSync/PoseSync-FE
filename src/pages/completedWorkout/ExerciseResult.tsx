@@ -4,6 +4,9 @@ import Gnb from '../../components/gnb/Gnb';
 import CheckImg from '../../assets/images/items/check.png';
 //import XImg from '../../assets/images/items/x.png';
 import { useExerciseStore } from '../../store/useExerciseStore';
+import { TertiaryButton } from '../../components/buttons/TertiaryButton';
+import { PrimaryButton } from '../../components/buttons/PrimaryButton';
+import { useNavigate } from 'react-router-dom';
 
 const Container = styled.div`
   width: 3840px;
@@ -73,6 +76,28 @@ const SetBox = styled.div`
   display: flex;
   flex-direction: column;
   gap: var(--margin-5);
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: var(--padding-m);
+
+  /* 스크롤바 스타일링 */
+  &::-webkit-scrollbar {
+    width: 16px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: var(--gray-700);
+    border-radius: 4px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: var(--gray-600);
+    border-radius: 4px;
+  }
+
+  &::-webkit-scrollbar-thumb:hover {
+    background: var(--gray-500);
+  }
 `;
 
 const SetItem = styled.div`
@@ -95,7 +120,7 @@ const SetItemDetail = styled.div`
 `;
 
 const SetKgCount = styled.div`
-  width: 605px;
+  width: 800px;
   height: 80px;
   display: flex;
   justify-content: space-between;
@@ -118,7 +143,7 @@ const Set = styled.div`
 `;
 
 const SetVolume = styled.div`
-    width: 311px;
+    width: 500px;
     height: 80px;
     display: flex;
     justify-content: center;
@@ -138,9 +163,27 @@ const ItemContainer = styled.div`
     height: 80px;
 `;
 
+const ButtonWrapper = styled.div`
+  width: 1160px;
+  height: 170px;
+  display: flex;
+  gap: var(--gap-11);
+  justify-content: flex-end;
+`;
+
 const ExerciseResult = () => {
+  const navigate = useNavigate();
   const exercise = useExerciseStore(state => state.selectedExercise);
   const sets = useExerciseStore(state => state.sets);
+
+  const handleGoToHome = () => {
+    navigate('/');
+  };
+
+  const handleGoToSelectExercise = () => {
+    navigate('/startexercises');
+  };
+
   return (
     <Container>
       <Gnb />
@@ -163,7 +206,7 @@ const ExerciseResult = () => {
                       <SetItemDetail>
                         <SetKgCount>
                           <Set>
-                            {index + 1}세트
+                            {index + 1} set
                           </Set>
                           <SetVolume>
                             {set.weight} kg  x  {set.reps} 회
@@ -176,7 +219,22 @@ const ExerciseResult = () => {
                     </SetItem>
                   ))}
                 </SetBox>
-
+                <ButtonWrapper>
+                  <TertiaryButton 
+                    size="xl" 
+                    fontSize="54px"
+                    onClick={handleGoToHome}
+                  >
+                    첫 화면으로 나가기
+                  </TertiaryButton>
+                  <PrimaryButton 
+                    size="xl" 
+                    fontSize="54px" 
+                    onClick={handleGoToSelectExercise}
+                  >
+                    운동 선택하러 가기
+                  </PrimaryButton>
+                </ButtonWrapper>
             </RightContainer>
         </MainBox>
       </MainContainer>

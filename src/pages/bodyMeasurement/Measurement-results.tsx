@@ -3,6 +3,7 @@ import styled from 'styled-components';
 import Gnb from '../../components/gnb/Gnb';
 import UnionImg from '../../assets/images/items/Union.png';
 import LineImg from '../../assets/images/items/line.png';
+import { useUserStore } from '../../store/useUserStore';
 
 const FullScreenContainer = styled.div`
   width: 3840px;
@@ -250,6 +251,8 @@ const BodyRatioResultText = styled(ResultTextBase)`
 `;
 
 const MeasurementResults = () => {
+  const height = useUserStore((state) => state.height);
+
   return (
     <FullScreenContainer>
       <Gnb />
@@ -265,7 +268,7 @@ const MeasurementResults = () => {
           <HeightContainer>
             <HeightText>키</HeightText>
             <HeightValueContainer>
-              <NumberContainer>175</NumberContainer>
+              <NumberContainer>{height}</NumberContainer>
               <CmContainer>cm</CmContainer>
             </HeightValueContainer>
           </HeightContainer>

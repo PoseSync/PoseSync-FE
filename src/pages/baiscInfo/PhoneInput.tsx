@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { TertiaryButton } from '../../components/buttons/TertiaryButton';
 import { PrimaryButton } from '../../components/buttons/PrimaryButton';
 import { useNavigate } from 'react-router-dom';
+import { useUserStore } from '../../store/useUserStore';
 
 const FullScreen = styled.div`
   width: 3840px;
@@ -121,6 +122,7 @@ const PHONE_PREFIX = '010  -  ';
 const PhoneInput = () => {
   const [phoneValue, setPhoneValue] = useState('');
   const navigate = useNavigate();
+  const setUserPhoneNumber = useUserStore((state) => state.setPhoneNumber);
 
   // 키패드 입력 처리 함수
   const handleKeyboardInput = (key: string) => {
@@ -161,6 +163,13 @@ const PhoneInput = () => {
   // 전화번호가 11자리(숫자만)면 완료로 간주
   const isPhoneComplete = phoneValue.replace(/[^0-9]/g, '').length === 11;
 
+  const handleNext = () => {
+    if (isPhoneComplete) {
+      setUserPhoneNumber(phoneValue);
+      navigate('/height');
+    }
+  };
+
   return (
     <FullScreen>
       <LeftContainer>
@@ -189,9 +198,7 @@ const PhoneInput = () => {
             fontSize="48px"
             selected={isPhoneComplete}
             disabled={!isPhoneComplete}
-            onClick={() => {
-              if (isPhoneComplete) navigate('/height');
-            }}
+            onClick={handleNext}
           >
             다음으로
           </PrimaryButton>

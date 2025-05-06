@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { TertiaryButton } from '../../components/buttons/TertiaryButton';
 import { PrimaryButton } from '../../components/buttons/PrimaryButton';
 import { useNavigate } from 'react-router-dom';
+import { useUserStore } from '../../store/useUserStore';
 
 const FullScreen = styled.div`
   width: 3840px;
@@ -150,6 +151,7 @@ const CmLabel = styled.span`
 const HeightInput = () => {
   const [height, setHeight] = useState('');
   const navigate = useNavigate();
+  const setUserHeight = useUserStore((state) => state.setHeight);
 
   // 키패드 입력 처리 함수
   const handleKeyboardInput = (key: string) => {
@@ -163,6 +165,14 @@ const HeightInput = () => {
 
   // 키 입력이 2자리 이상이면 완료로 간주
   const isHeightComplete = height.length >= 2;
+
+  // 전역 키 상태 입력, 임시로 경로 설정했음 추후에 수정해야함.
+  const handleNext = () => {
+    if (isHeightComplete) {
+      setUserHeight(height);
+      navigate('/measurement-results');
+    }
+  };
 
   return (
     <FullScreen>
@@ -197,9 +207,7 @@ const HeightInput = () => {
             fontSize="48px"
             selected={isHeightComplete}
             disabled={!isHeightComplete}
-            onClick={() => {
-              if (isHeightComplete) navigate('/height');
-            }}
+            onClick={handleNext}
           >
             다음으로
           </PrimaryButton>
