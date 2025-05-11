@@ -170,7 +170,7 @@ const HeightInput = () => {
   const handleNext = () => {
     if (isHeightComplete) {
       setUserHeight(height);
-      navigate('/measurement-results');
+      navigate('/measurement');
     }
   };
 

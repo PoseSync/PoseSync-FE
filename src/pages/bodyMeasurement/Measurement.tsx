@@ -46,6 +46,16 @@ const ButtonBox = styled.div`
 
 const Measurement = () => {
   const navigate = useNavigate();
+
+  const startMeasurement = () => {
+    setTimeout(() => {
+      navigate('/measurement-results');
+    }, 1000);
+  };
+
+  // 컴나중에 키 입력 화면 먼저 띄우기. 서버에서 OK 사인 받으면 창 닫으면서 로띠 보이고 자동으로 10초 뒤에 넘어가게하기.
+  startMeasurement();
+
   return (
     <FullScreen>
       <LottieBox>
