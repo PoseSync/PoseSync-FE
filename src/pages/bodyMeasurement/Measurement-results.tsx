@@ -131,28 +131,28 @@ const BaseBodyPartContainer = styled.div`
 `;
 
 const ArmContainer = styled(BaseBodyPartContainer)`
-  width: 527px;
+  width: 639px;
   height: 300px;
   top: 442.3px;
-  left: 0;
+  left: -112px;
 `;
 
 const FemurContainer = styled(BaseBodyPartContainer)`
-  width: 687px;
+  width: 707px;
   height: 300px;
   top: 1058.3px;
-  left: 0;
+  left: -18.25;
 `;
 
 const HipJointContainer = styled(BaseBodyPartContainer)`
-  width: 687px;
+  width: 707px;
   height: 300px;
   top: 1058.3px;
   left: 2037.08px;
 `;
 
 const BodyRatioContainer = styled(BaseBodyPartContainer)`
-  width: 482px;
+  width: 690px;
   height: 300px;
   top: 442.3px;
   left: 2246.08px;
@@ -214,7 +214,7 @@ const BodyRatioInfoText = styled(InfoTextBase)`
 `;
 
 const ArmResultText = styled(ResultTextBase)`
-  width: 361px;
+  width: 535px;
   height: 100px;
   font-weight: 700;
   font-size: 80px;
@@ -223,7 +223,7 @@ const ArmResultText = styled(ResultTextBase)`
   margin-bottom: 0;
 `;
 const FemurResultText = styled(ResultTextBase)`
-  width: 583px;
+  width: 603px;
   height: 100px;
   font-weight: 700;
   font-size: 80px;
@@ -241,7 +241,7 @@ const HipJointResultText = styled(ResultTextBase)`
   margin-bottom: 0;
 `;
 const BodyRatioResultText = styled(ResultTextBase)`
-  width: 378px;
+  width: 603px;
   height: 100px;
   font-weight: 700;
   font-size: 80px;
@@ -274,20 +274,20 @@ const MeasurementResults = () => {
           </HeightContainer>
           <ArmContainer>
             <ArmInfoText>상완-전완 비율 | 1:0.85</ArmInfoText>
-            <ArmResultText>균형잡힌 편</ArmResultText>
+            <ArmResultText>전완 길이 발달형</ArmResultText>
           </ArmContainer>
           <FemurContainer>
             <FemurInfoText>대퇴골 비율 | 신장 대비 약 22%</FemurInfoText>
-            <FemurResultText>상대적으로 넓은 편</FemurResultText>
+            <FemurResultText>정강이 비율 발달형</FemurResultText>
           </FemurContainer>
-          <HipJointContainer>
-            <HipJointInfoText>고관절 너비 | 신장 대비 약 0.20</HipJointInfoText>
-            <HipJointResultText>상대적으로 넓은 편</HipJointResultText>
-          </HipJointContainer>
           <BodyRatioContainer>
             <BodyRatioInfoText>상하체 비율 | 1:1.2</BodyRatioInfoText>
-            <BodyRatioResultText>상체가 긴 편</BodyRatioResultText>
+            <BodyRatioResultText>상하체비율 평균형</BodyRatioResultText>
           </BodyRatioContainer>
+          <HipJointContainer>
+            <HipJointInfoText>고관절 너비 | 신장 대비 약 0.20</HipJointInfoText>
+            <HipJointResultText>고관절 너비 평균형</HipJointResultText>
+          </HipJointContainer>
         </MainBox>
       </MainContainer>
     </FullScreenContainer>
