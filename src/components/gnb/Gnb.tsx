@@ -1,4 +1,5 @@
 import styled from 'styled-components';
+import { useNavigate } from 'react-router-dom';
 import '../../styles/foundation/index.css';
 import PoseSyncLogo1 from '../../assets/images/logo/PoseSyncLogo1.png';
 import { TertiaryButton } from '../buttons/TertiaryButton';
@@ -44,18 +45,32 @@ const RightContainer = styled.div`
   height: 100%;
 `;
 
-const Gnb = () => (
-  <GnbContainer>
-    <GnbInnerContainer>
-      <LeftContainer>
-        <LogoImg src={PoseSyncLogo1} alt="Pose Sync 로고" />
-      </LeftContainer>
-      <RightContainer>
-        <TertiaryButton size="s" fontSize="36px">로그아웃</TertiaryButton>
-      </RightContainer>
-    </GnbInnerContainer>
-  </GnbContainer>
-);
+const Gnb = () => {
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    navigate('/');
+  };
+
+  return (
+    <GnbContainer>
+      <GnbInnerContainer>
+        <LeftContainer>
+          <LogoImg src={PoseSyncLogo1} alt="Pose Sync 로고" />
+        </LeftContainer>
+        <RightContainer>
+          <TertiaryButton 
+            size="s" 
+            fontSize="36px"
+            onClick={handleLogout}
+          >
+            로그아웃
+          </TertiaryButton>
+        </RightContainer>
+      </GnbInnerContainer>
+    </GnbContainer>
+  );
+};
 
 export default Gnb;
 

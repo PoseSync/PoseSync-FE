@@ -47,12 +47,38 @@ const CardContainer = styled.div<ExerciseCardProps>`
   &:hover {
     transform: scale(0.87);
   }
+
+  /* 👇 reflection 효과 추가 */
+  &::after {
+    content: "";
+    position: absolute;
+    top: 100%;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: ${({ status }) => {
+      switch (status) {
+        case 'focused':
+          return 'var(--yellow-500)';
+        case 'selected':
+          return 'var(--yellow-300)';
+        default:
+          return 'var(--gray-700)';
+      }
+    }};
+    transform: scaleY(-1);
+    opacity: 0.2;
+    filter: blur(4px);
+    pointer-events: none;
+    border-radius: var(--radius-2xl);
+    mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.4), transparent);
+    z-index: 0;
+  }
 `;
 
 const ContentContainer = styled.div`
   width: 100%;
   height: 798px;
-  padding: var(--padding-3xl);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -165,6 +191,21 @@ const Body2Text = styled.p<{ status?: CardStatus }>`
   margin: 0;
 `;
 
+const ReflectionWrapper = styled.div`
+  position: absolute;
+  top: 100%;
+  left: 100px;
+  width: 100%;
+  height: 990px; /* 카드 높이만큼 */
+  overflow: hidden;
+  pointer-events: none;
+  mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.3), transparent);
+
+  /* 📌 그라데이션을 좀 더 진하고 천천히 사라지게 */
+  mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.2), transparent);
+  -webkit-mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.2), transparent);
+`;
+
 const ExerciseCard: React.FC<ExerciseCardProps> = ({ status = 'default', imageSrc, imageAlt, subtitle, bodyText, onClick }) => {
   const [isSelected, setIsSelected] = useState(false);
 
@@ -178,10 +219,12 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({ status = 'default', imageSr
   };
 
   return (
+    <div style={{ position: 'relative' }}>
     <CardContainer 
       status={isSelected ? 'selected' : status} 
       onClick={handleClick}
     >
+      {/* 실제 카드 내용 */}
       <ContentContainer>
         <ImageContainer status={isSelected ? 'selected' : status}>
           {imageSrc && <StyledImage src={imageSrc} alt={imageAlt || '운동 이미지'} />}
@@ -196,7 +239,27 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({ status = 'default', imageSr
         </TextContainer>
       </ContentContainer>
     </CardContainer>
-  );
+
+    {/* 👇 반사되는 복제 카드 */}
+    <ReflectionWrapper>
+      <CardContainer status={isSelected ? 'selected' : status} style={{ transform: 'scaleY(-1)', opacity: 0.4, filter: 'blur(1px)' }}>
+        <ContentContainer>
+          <ImageContainer status={isSelected ? 'selected' : status}>
+            {imageSrc && <StyledImage src={imageSrc} alt={imageAlt || '운동 이미지'} />}
+          </ImageContainer>
+          <TextContainer>
+            <SubtitleContainer>
+              {subtitle && <SubtitleText status={isSelected ? 'selected' : status}>{subtitle}</SubtitleText>}
+            </SubtitleContainer>
+            <Body2Container>
+              {bodyText && <Body2Text status={isSelected ? 'selected' : status}>{bodyText}</Body2Text>}
+            </Body2Container>
+          </TextContainer>
+        </ContentContainer>
+      </CardContainer>
+    </ReflectionWrapper>
+  </div>
+);
 };
 
 export default ExerciseCard;
