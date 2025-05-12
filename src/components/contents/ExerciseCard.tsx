@@ -1,8 +1,8 @@
-import styled from 'styled-components';
-import '../../styles/foundation/index.css';
-import { useState } from 'react';
+import styled from "styled-components";
+import "../../styles/foundation/index.css";
+import { useState } from "react";
 
-type CardStatus = 'default' | 'focused' | 'selected';
+type CardStatus = "default" | "focused" | "selected" | "disabled";
 
 interface ExerciseCardProps {
   status?: CardStatus;
@@ -11,6 +11,7 @@ interface ExerciseCardProps {
   subtitle?: string;
   bodyText?: string;
   onClick?: () => void;
+  available?: boolean; // 가용성 속성 추가
 }
 
 const CardContainer = styled.div<ExerciseCardProps>`
@@ -21,21 +22,23 @@ const CardContainer = styled.div<ExerciseCardProps>`
   gap: 10px;
   background: ${({ status }) => {
     switch (status) {
-      case 'focused':
-        return 'var(--yellow-500)';
-      case 'selected':
-        return 'var(--yellow-300)';
+      case "focused":
+        return "var(--yellow-500)";
+      case "selected":
+        return "var(--yellow-300)";
+      case "disabled":
+        return "var(--gray-800)"; // 비활성화된 운동은 더 어두운 배경
       default:
-        return 'var(--gray-700)';
+        return "var(--gray-700)";
     }
   }};
   box-shadow: ${({ status }) => {
     switch (status) {
-      case 'focused':
-      case 'selected':
-        return '-4px -4px 4px 0px var(--gray-opacity-30), 4px 4px 4px 0px var(--yellow-opacity-10), 0px 4px 20px 0px var(--yellow-300)';
+      case "focused":
+      case "selected":
+        return "-4px -4px 4px 0px var(--gray-opacity-30), 4px 4px 4px 0px var(--yellow-opacity-10), 0px 4px 20px 0px var(--yellow-300)";
       default:
-        return '0px 4px 24px 0px var(--gray-opacity-50), 0px 4px 12px 0px var(--gray-opacity-10)';
+        return "0px 4px 24px 0px var(--gray-opacity-50), 0px 4px 12px 0px var(--gray-opacity-10)";
     }
   }};
   display: flex;
@@ -43,9 +46,13 @@ const CardContainer = styled.div<ExerciseCardProps>`
   align-items: center;
   transform: scale(0.85);
   transition: all 0.3s ease;
+  opacity: ${({ available }) =>
+    available === false ? 0.6 : 1}; // 준비 중인 운동은 반투명하게
 
   &:hover {
-    transform: scale(0.87);
+    transform: scale(${({ available }) => (available === false ? 0.85 : 0.87)});
+    cursor: ${({ available }) =>
+      available === false ? "not-allowed" : "pointer"};
   }
 `;
 
@@ -69,7 +76,7 @@ const ImageContainer = styled.div<{ status?: CardStatus }>`
   overflow: visible;
 
   &::before {
-    content: '';
+    content: "";
     position: absolute;
     top: 50%;
     left: 50%;
@@ -78,18 +85,18 @@ const ImageContainer = styled.div<{ status?: CardStatus }>`
     transform: translate(-50%, -50%);
     background: ${({ status }) => {
       switch (status) {
-        case 'focused':
-          return 'var(--yellow-200)';
-        case 'selected':
-          return 'var(--yellow-100)';
+        case "focused":
+          return "var(--yellow-200)";
+        case "selected":
+          return "var(--yellow-100)";
         default:
-          return 'none';
+          return "none";
       }
     }};
     border-radius: 50%;
-    filter: ${({ status }) => status === 'default' ? 'none' : 'blur(80px)'};
+    filter: ${({ status }) => (status === "default" ? "none" : "blur(80px)")};
     z-index: 0;
-    opacity: ${({ status }) => status === 'default' ? 0 : 1};
+    opacity: ${({ status }) => (status === "default" ? 0 : 1)};
   }
 `;
 
@@ -120,7 +127,7 @@ const SubtitleContainer = styled.div`
 `;
 
 const SubtitleText = styled.h2<{ status?: CardStatus }>`
-  font-family: 'Pretendard Variable';
+  font-family: "Pretendard Variable";
   font-weight: 700;
   font-size: 60px;
   line-height: 80px;
@@ -128,11 +135,11 @@ const SubtitleText = styled.h2<{ status?: CardStatus }>`
   text-align: center;
   color: ${({ status }) => {
     switch (status) {
-      case 'focused':
-      case 'selected':
-        return 'var(--gray-900)';
+      case "focused":
+      case "selected":
+        return "var(--gray-900)";
       default:
-        return 'var(--gray-600)';
+        return "var(--gray-600)";
     }
   }};
   margin: 0;
@@ -147,7 +154,7 @@ const Body2Container = styled.div`
 `;
 
 const Body2Text = styled.p<{ status?: CardStatus }>`
-  font-family: 'Pretendard Variable';
+  font-family: "Pretendard Variable";
   font-weight: 500;
   font-size: 44px;
   line-height: 56px;
@@ -155,20 +162,45 @@ const Body2Text = styled.p<{ status?: CardStatus }>`
   text-align: center;
   color: ${({ status }) => {
     switch (status) {
-      case 'focused':
-      case 'selected':
-        return 'var(--yellow-900)';
+      case "focused":
+      case "selected":
+        return "var(--yellow-900)";
       default:
-        return 'var(--gray-600)';
+        return "var(--gray-600)";
     }
   }};
   margin: 0;
 `;
 
-const ExerciseCard: React.FC<ExerciseCardProps> = ({ status = 'default', imageSrc, imageAlt, subtitle, bodyText, onClick }) => {
+// 준비 중 표시 컴포넌트 추가
+const PreparingBadge = styled.div`
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  background-color: var(--red-500);
+  color: white;
+  padding: 8px 20px;
+  border-radius: var(--radius-xs);
+  font-family: "Pretendard Variable";
+  font-weight: 700;
+  font-size: 36px;
+  z-index: 10;
+`;
+
+const ExerciseCard: React.FC<ExerciseCardProps> = ({
+  status = "default",
+  imageSrc,
+  imageAlt,
+  subtitle,
+  bodyText,
+  onClick,
+  available = true, // 기본값은 true (사용 가능)
+}) => {
   const [isSelected, setIsSelected] = useState(false);
 
   const handleClick = () => {
+    if (!available) return; // 준비 중인 운동은 클릭 이벤트 무시
+
     if (onClick) {
       setIsSelected(true);
       setTimeout(() => {
@@ -178,20 +210,32 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({ status = 'default', imageSr
   };
 
   return (
-    <CardContainer 
-      status={isSelected ? 'selected' : status} 
+    <CardContainer
+      status={isSelected ? "selected" : status}
       onClick={handleClick}
+      available={available}
     >
+      {!available && <PreparingBadge>준비 중</PreparingBadge>}
       <ContentContainer>
-        <ImageContainer status={isSelected ? 'selected' : status}>
-          {imageSrc && <StyledImage src={imageSrc} alt={imageAlt || '운동 이미지'} />}
+        <ImageContainer status={isSelected ? "selected" : status}>
+          {imageSrc && (
+            <StyledImage src={imageSrc} alt={imageAlt || "운동 이미지"} />
+          )}
         </ImageContainer>
         <TextContainer>
           <SubtitleContainer>
-            {subtitle && <SubtitleText status={isSelected ? 'selected' : status}>{subtitle}</SubtitleText>}
+            {subtitle && (
+              <SubtitleText status={isSelected ? "selected" : status}>
+                {subtitle}
+              </SubtitleText>
+            )}
           </SubtitleContainer>
           <Body2Container>
-            {bodyText && <Body2Text status={isSelected ? 'selected' : status}>{bodyText}</Body2Text>}
+            {bodyText && (
+              <Body2Text status={isSelected ? "selected" : status}>
+                {bodyText}
+              </Body2Text>
+            )}
           </Body2Container>
         </TextContainer>
       </ContentContainer>

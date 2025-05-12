@@ -1,5 +1,5 @@
 import styled from "styled-components";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Gnb from "../../components/gnb/Gnb";
 // import TextButton from '../../components/buttons/TextBtn';
@@ -203,6 +203,22 @@ const ExerciseSetupPage = () => {
 
   const [sets, setSets] = useState<SetData[]>([{ weight: 5, reps: 5 }]);
 
+  // 운동이 선택되지 않았거나 준비 중인 운동이면 운동 선택 페이지로 이동
+  useEffect(() => {
+    if (!exercise) {
+      navigate("/startexercises");
+      return;
+    }
+
+    // 운동이 준비 중인 경우
+    if (exercise.available === false) {
+      alert(
+        `${exercise.name}은(는) 현재 준비 중입니다. 다른 운동을 선택해주세요.`
+      );
+      navigate("/startexercises");
+    }
+  }, [exercise, navigate]);
+
   const handleAddSet = () => {
     setSets([...sets, { weight: 5, reps: 5 }]);
   };
@@ -236,16 +252,14 @@ const ExerciseSetupPage = () => {
     navigate("/realtime-exercise");
   };
 
-  console.log("Exercise:", exercise);
-
   if (!exercise) {
     return (
       <FullScreen>
         <Gnb />
         <Container>
-          <MainContainer>
-            <TitleText>운동을 선택해주세요</TitleText>
-          </MainContainer>
+          <div style={{ color: "white", fontSize: "24px" }}>
+            운동을 선택해주세요
+          </div>
         </Container>
       </FullScreen>
     );

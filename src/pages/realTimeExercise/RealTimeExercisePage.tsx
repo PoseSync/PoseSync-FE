@@ -1,5 +1,3 @@
-// RealTimeExercisePage.tsx의 수정된 버전
-
 import React, { useState, useEffect } from "react";
 import styled from "styled-components";
 import Gnb from "../../components/gnb/Gnb";
@@ -143,6 +141,53 @@ const TransmitButton = styled.button<{ active?: boolean }>`
   font-size: 24px;
 `;
 
+// 준비 중 알림 컴포넌트
+const PreparingNotice = styled.div`
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--gray-800);
+  border-radius: var(--radius-xl);
+  color: var(--white);
+`;
+
+const PreparingTitle = styled.h2`
+  font-family: "Pretendard Variable", sans-serif;
+  font-weight: 700;
+  font-size: 80px;
+  margin-bottom: 40px;
+  color: var(--red-400);
+`;
+
+const PreparingText = styled.p`
+  font-family: "Pretendard Variable", sans-serif;
+  font-weight: 500;
+  font-size: 54px;
+  line-height: 72px;
+  text-align: center;
+  max-width: 70%;
+`;
+
+const BackButton = styled.button`
+  margin-top: 60px;
+  padding: 20px 40px;
+  background-color: var(--gray-700);
+  color: var(--white);
+  border: none;
+  border-radius: var(--radius-m);
+  font-family: "Pretendard Variable", sans-serif;
+  font-weight: 600;
+  font-size: 48px;
+  cursor: pointer;
+
+  &:hover {
+    background-color: var(--gray-600);
+  }
+`;
+
 const RealTimeExercisePage: React.FC = () => {
   const navigate = useNavigate();
   const exercise = useExerciseStore((state) => state.selectedExercise);
@@ -169,7 +214,10 @@ const RealTimeExercisePage: React.FC = () => {
     if (!exercise || !sets || sets.length === 0) {
       console.log("필요한 데이터가 없어 설정 페이지로 리다이렉트합니다.");
       navigate("/exercisesetup");
+      return;
     }
+
+    // 운동이 준비 중인 경우, 별도 처리는 필요 없음 (이미 ExerciseSetupPage에서 처리됨)
   }, [exercise, sets, phoneNumber, navigate]);
 
   // 피드백 추가 함수
@@ -217,7 +265,51 @@ const RealTimeExercisePage: React.FC = () => {
       ? sets[currentSet - 1]
       : { weight: 0, reps: 0 };
 
-  if (!exercise || !currentSetData) {
+  // 운동 선택으로 돌아가기
+  const handleGoBackToExerciseSelection = () => {
+    navigate("/startexercises");
+  };
+
+  // 운동이 없거나 준비중인 경우 대체 UI 표시
+  if (!exercise) {
+    return (
+      <FullScreen>
+        <Gnb />
+        <Container>
+          <PreparingNotice>
+            <PreparingTitle>운동 정보를 찾을 수 없습니다</PreparingTitle>
+            <PreparingText>운동을 먼저 선택해주세요.</PreparingText>
+            <BackButton onClick={handleGoBackToExerciseSelection}>
+              운동 선택으로 돌아가기
+            </BackButton>
+          </PreparingNotice>
+        </Container>
+      </FullScreen>
+    );
+  }
+
+  // 운동이 준비중인 경우 - ExerciseSetupPage에서 이미 처리되므로 여기서는 중복 체크
+  if (exercise.available === false) {
+    return (
+      <FullScreen>
+        <Gnb />
+        <Container>
+          <PreparingNotice>
+            <PreparingTitle>준비 중인 운동입니다</PreparingTitle>
+            <PreparingText>
+              {exercise.name}은(는) 현재 준비 중인 운동입니다. 다른 운동을
+              선택해주세요.
+            </PreparingText>
+            <BackButton onClick={handleGoBackToExerciseSelection}>
+              운동 선택으로 돌아가기
+            </BackButton>
+          </PreparingNotice>
+        </Container>
+      </FullScreen>
+    );
+  }
+
+  if (!currentSetData) {
     return (
       <FullScreen>
         <Gnb />
@@ -235,7 +327,17 @@ const RealTimeExercisePage: React.FC = () => {
     if (name === "바벨 스쿼트") return "squat";
     if (name === "숄더 프레스") return "dumbbell_shoulder_press";
     if (name === "런지") return "lunge";
-    return "squat"; // 기본값
+    if (name === "사이드 레터럴 레이즈") return "lateral_raise";
+    if (name === "데드 리프트") return "deadlift";
+    if (name === "덤벨/바벨 컬") return "curl";
+    if (name === "바벨로우") return "barbell_row";
+    if (name === "덤벨로우") return "dumbbell_row";
+    if (name === "프론트레이즈") return "front_raise";
+    if (name === "인클라인 벤치프레스") return "incline_bench_press";
+
+    // 기본값으로 squat 반환
+    console.warn(`알 수 없는 운동 유형: ${name}, 기본값 'squat'로 설정합니다.`);
+    return "squat";
   };
 
   return (

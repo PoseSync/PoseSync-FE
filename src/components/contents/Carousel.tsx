@@ -1,17 +1,20 @@
-import { useState } from 'react';
-import { useKeenSlider } from 'keen-slider/react';
-import 'keen-slider/keen-slider.min.css';
-import styled from 'styled-components';
-import ExerciseCard from './ExerciseCard';
+import { useState } from "react";
+import { useKeenSlider } from "keen-slider/react";
+import "keen-slider/keen-slider.min.css";
+import styled from "styled-components";
+import ExerciseCard from "./ExerciseCard";
+
+interface CarouselCard {
+  id: string;
+  title: string;
+  description: string;
+  imageSrc: string;
+  available?: boolean; // 가용성 속성 추가
+  onClick?: () => void;
+}
 
 interface CarouselProps {
-  cards: {
-    id: string;
-    title: string;
-    description: string;
-    imageSrc: string;
-    onClick?: () => void;
-  }[];
+  cards: CarouselCard[];
 }
 
 const CarouselWrapper = styled.div`
@@ -74,15 +77,31 @@ const Carousel: React.FC<CarouselProps> = ({ cards }) => {
     slideChanged(slider) {
       setCurrentSlide(slider.track.details.rel);
     },
-    created() {
-    },
+    created() {},
   });
 
   const getSlideClass = (index: number) => {
     const distance = Math.abs(index - currentSlide);
-    if (distance === 0) return 'active';
-    if (distance === 1) return 'semi-active';
-    return '';
+    if (distance === 0) return "active";
+    if (distance === 1) return "semi-active";
+    return "";
+  };
+
+  // 운동 클릭 핸들러
+  const handleExerciseClick = (card: CarouselCard, index: number) => {
+    // 준비 중인 운동인 경우 얼럿 표시
+    if (card.available === false) {
+      alert(
+        `${card.title}은(는) 현재 준비 중입니다. 다른 운동을 선택해주세요.`
+      );
+      return;
+    }
+
+    // 사용 가능한 운동이면 슬라이드 이동 후 onClick 실행
+    instanceRef.current?.moveToIdx(index);
+    setTimeout(() => {
+      if (card.onClick) card.onClick();
+    }, 300);
   };
 
   return (
@@ -90,23 +109,21 @@ const Carousel: React.FC<CarouselProps> = ({ cards }) => {
       <SliderContainer>
         <div ref={sliderRef} className="keen-slider">
           {cards.map((card, index) => (
-            <div 
-              key={card.id} 
+            <div
+              key={card.id}
               className={`keen-slider__slide ${getSlideClass(index)}`}
-              onClick={() => {
-                instanceRef.current?.moveToIdx(index);
-                setTimeout(() => {
-                  if (card.onClick) card.onClick();
-                }, 300);
+              onClick={() => handleExerciseClick(card, index)}
+              style={{
+                cursor: card.available === false ? "not-allowed" : "pointer",
               }}
-              style={{ cursor: 'pointer' }}
             >
               <ExerciseCard
-                status={index === currentSlide ? 'focused' : 'default'}
+                status={index === currentSlide ? "focused" : "default"}
                 imageSrc={card.imageSrc}
                 imageAlt={card.title}
                 subtitle={card.title}
                 bodyText={card.description}
+                available={card.available}
               />
             </div>
           ))}
