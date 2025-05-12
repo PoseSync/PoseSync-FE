@@ -1,3 +1,5 @@
+// RealTimeExercisePage.tsx의 수정된 버전
+
 import React, { useState, useEffect } from "react";
 import styled from "styled-components";
 import Gnb from "../../components/gnb/Gnb";
@@ -5,6 +7,11 @@ import PoseDetector from "../../components/realTimeExercise/PoseDetector";
 import { useNavigate } from "react-router-dom";
 import { useExerciseStore } from "../../store/useExerciseStore";
 import { useUserStore } from "../../store/useUserStore";
+
+// styled-components에서 타입 지정
+interface StatusContainerProps {
+  active?: boolean; // DOM에 전달되지 않도록 isSelected 대신 active 사용
+}
 
 const FullScreen = styled.div`
   width: 3840px;
@@ -69,7 +76,7 @@ const InfoContainer = styled.div`
   gap: var(--gap-5);
 `;
 
-const StatusContainer = styled.div`
+const StatusContainer = styled.div<StatusContainerProps>`
   width: 940px;
   height: 170px;
   display: flex;
@@ -123,11 +130,27 @@ const CountText = styled.div`
   text-align: center;
 `;
 
+// 버튼 스타일 추가
+const TransmitButton = styled.button<{ active?: boolean }>`
+  background: ${(props) =>
+    props.active ? "var(--yellow-500)" : "var(--gray-700)"};
+  padding: 10px 20px;
+  border-radius: var(--radius-xs);
+  color: ${(props) => (props.active ? "var(--gray-900)" : "white")};
+  border: none;
+  cursor: pointer;
+  font-family: "Pretendard Variable", sans-serif;
+  font-size: 24px;
+`;
+
 const RealTimeExercisePage: React.FC = () => {
   const navigate = useNavigate();
   const exercise = useExerciseStore((state) => state.selectedExercise);
   const sets = useExerciseStore((state) => state.sets);
   const phoneNumber = useUserStore((state) => state.phoneNumber);
+
+  // 테스트용 전화번호 설정
+  const testPhoneNumber = "01012345678";
 
   const [currentSet, setCurrentSet] = useState(1);
   const [isTransmitting, setIsTransmitting] = useState(false);
@@ -137,8 +160,14 @@ const RealTimeExercisePage: React.FC = () => {
   const visualizationMode = "2d";
 
   useEffect(() => {
+    console.log("RealTimeExercisePage가 마운트되었습니다.");
+    console.log("exercise:", exercise);
+    console.log("sets:", sets);
+    console.log("phoneNumber:", phoneNumber);
+
     // 필요한 데이터가 없으면 설정 페이지로 리다이렉트
-    if (!exercise || !sets || sets.length === 0 || !phoneNumber) {
+    if (!exercise || !sets || sets.length === 0) {
+      console.log("필요한 데이터가 없어 설정 페이지로 리다이렉트합니다.");
       navigate("/exercisesetup");
     }
   }, [exercise, sets, phoneNumber, navigate]);
@@ -186,7 +215,7 @@ const RealTimeExercisePage: React.FC = () => {
   const currentSetData =
     sets && sets.length > 0 && currentSet <= sets.length
       ? sets[currentSet - 1]
-      : null;
+      : { weight: 0, reps: 0 };
 
   if (!exercise || !currentSetData) {
     return (
@@ -200,6 +229,14 @@ const RealTimeExercisePage: React.FC = () => {
       </FullScreen>
     );
   }
+
+  // 운동 유형 매핑
+  const getExerciseType = (name: string): string => {
+    if (name === "바벨 스쿼트") return "squat";
+    if (name === "숄더 프레스") return "dumbbell_shoulder_press";
+    if (name === "런지") return "lunge";
+    return "squat"; // 기본값
+  };
 
   return (
     <FullScreen>
@@ -215,16 +252,8 @@ const RealTimeExercisePage: React.FC = () => {
           <ExerciseDetailsContainer>
             <VideoContainer>
               <PoseDetector
-                phoneNumber={phoneNumber}
-                exerciseType={
-                  exercise.name === "바벨 스쿼트"
-                    ? "squat"
-                    : exercise.name === "숄더 프레스"
-                    ? "dumbbell_shoulder_press"
-                    : exercise.name === "런지"
-                    ? "lunge"
-                    : "squat"
-                }
+                phoneNumber={phoneNumber || testPhoneNumber}
+                exerciseType={getExerciseType(exercise.name)}
                 visualizationMode={visualizationMode}
                 onCountUpdate={handleCountUpdate}
                 onFeedback={handleFeedback}
@@ -237,20 +266,12 @@ const RealTimeExercisePage: React.FC = () => {
                   {currentSetData.weight}kg × {currentSetData.reps}회
                 </div>
                 <div style={{ display: "flex", gap: "10px" }}>
-                  <button
+                  <TransmitButton
+                    active={isTransmitting}
                     onClick={toggleTransmission}
-                    style={{
-                      background: isTransmitting
-                        ? "var(--yellow-500)"
-                        : "var(--gray-700)",
-                      padding: "10px 20px",
-                      borderRadius: "var(--radius-xs)",
-                      color: isTransmitting ? "var(--gray-900)" : "white",
-                      border: "none",
-                    }}
                   >
                     {isTransmitting ? "전송 중지" : "전송 시작"}
-                  </button>
+                  </TransmitButton>
                 </div>
               </StatusContainer>
               <CountContainer>

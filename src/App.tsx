@@ -8,6 +8,7 @@ import SelectExercise from "./pages/startexercises/SelectExercise";
 import ExerciseSetupPage from "./pages/startexercises/ExerciseSetupPage";
 import Completion from "./pages/completedWorkout/Completion";
 import ExerciseResult from "./pages/completedWorkout/ExerciseResult";
+import RealTimeExercisePage from "./pages/realTimeExercise/RealTimeExercisePage";
 
 import IconTestPage from "./pages/icon-test/IconTestPage";
 
@@ -22,6 +23,7 @@ function App() {
         <Route path="/measurement-results" element={<MeasurementResults />} />
         <Route path="/startexercises" element={<SelectExercise />} />
         <Route path="/exercisesetup" element={<ExerciseSetupPage />} />
+        <Route path="/realtime-exercise" element={<RealTimeExercisePage />} />
         <Route path="/completed" element={<Completion />} />
         <Route path="/exercise-result" element={<ExerciseResult />} />
 

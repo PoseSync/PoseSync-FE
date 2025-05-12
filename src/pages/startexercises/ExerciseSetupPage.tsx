@@ -1,14 +1,14 @@
-import styled from 'styled-components';
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import Gnb from '../../components/gnb/Gnb';
+import styled from "styled-components";
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import Gnb from "../../components/gnb/Gnb";
 // import TextButton from '../../components/buttons/TextBtn';
-import { TertiaryButton } from '../../components/buttons/TertiaryButton';
-import { PrimaryButton } from '../../components/buttons/PrimaryButton';
-import { SecondaryButton } from '../../components/buttons/SecondaryButton';
-import TextButton from '../../components/buttons/TextBtn';
-import { Stepper } from '../../components/inputs/Stepper';
-import { useExerciseStore } from '../../store/useExerciseStore';
+import { TertiaryButton } from "../../components/buttons/TertiaryButton";
+import { PrimaryButton } from "../../components/buttons/PrimaryButton";
+import { SecondaryButton } from "../../components/buttons/SecondaryButton";
+import TextButton from "../../components/buttons/TextBtn";
+import { Stepper } from "../../components/inputs/Stepper";
+import { useExerciseStore } from "../../store/useExerciseStore";
 
 const FullScreen = styled.div`
   width: 3840px;
@@ -57,7 +57,7 @@ const TitleContainer = styled.div`
 const TitleText = styled.div`
   width: 1470px;
   height: 112px;
-  font-family: 'Pretendard Variable', sans-serif;
+  font-family: "Pretendard Variable", sans-serif;
   font-weight: 600;
   font-size: 88px;
   line-height: 112px;
@@ -68,7 +68,7 @@ const TitleText = styled.div`
 const SubTitleContainer = styled.div`
   width: 1470px;
   height: 192px;
-  font-family: 'Pretendard Variable', sans-serif;
+  font-family: "Pretendard Variable", sans-serif;
   font-weight: 700;
   font-size: 48px;
   line-height: 64px;
@@ -150,7 +150,7 @@ const SetText = styled.div`
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  font-family: 'Pretendard Variable', sans-serif;
+  font-family: "Pretendard Variable", sans-serif;
   font-weight: 700;
   font-size: 60px;
   line-height: 80px;
@@ -192,15 +192,15 @@ const ButtonWrapper = styled.div`
 
 const ExerciseSetupPage = () => {
   const navigate = useNavigate();
-  const exercise = useExerciseStore(state => state.selectedExercise);
-  const setSetsGlobal = useExerciseStore(state => state.setSets);
-  
+  const exercise = useExerciseStore((state) => state.selectedExercise);
+  const setSetsGlobal = useExerciseStore((state) => state.setSets);
+
   // 세트별 무게와 횟수를 관리하는 상태
   interface SetData {
     weight: number;
     reps: number;
   }
-  
+
   const [sets, setSets] = useState<SetData[]>([{ weight: 5, reps: 5 }]);
 
   const handleAddSet = () => {
@@ -228,15 +228,15 @@ const ExerciseSetupPage = () => {
   };
 
   const handleGoToSelectExercise = () => {
-    navigate('/startexercises');
+    navigate("/startexercises");
   };
 
-  const handleGoToCompletion = () => {
+  const handleGoToRealTimeExercise = () => {
     setSetsGlobal(sets);
-    navigate('/completed');
+    navigate("/realtime-exercise");
   };
 
-  console.log('Exercise:', exercise);
+  console.log("Exercise:", exercise);
 
   if (!exercise) {
     return (
@@ -259,7 +259,9 @@ const ExerciseSetupPage = () => {
           <LeftContainer>
             <TitleContainer>
               <TitleText>{exercise.name}</TitleText>
-              <SubTitleContainer>{exercise.detailDescription}</SubTitleContainer>
+              <SubTitleContainer>
+                {exercise.detailDescription}
+              </SubTitleContainer>
             </TitleContainer>
             <ImageContainer>
               <ExerciseImage src={exercise.detailImage} alt={exercise.name} />
@@ -273,27 +275,27 @@ const ExerciseSetupPage = () => {
                   <SetText>{index + 1} 세트</SetText>
                   <VolumeContainer>
                     <StepperGroup>
-                      <Stepper 
-                        value={set.weight} 
-                        min={0} 
-                        max={300} 
-                        step={5} 
-                        unit="kg" 
-                        onChange={(value) => handleWeightChange(value, index)} 
+                      <Stepper
+                        value={set.weight}
+                        min={0}
+                        max={300}
+                        step={5}
+                        unit="kg"
+                        onChange={(value) => handleWeightChange(value, index)}
                       />
-                      <Stepper 
-                        value={set.reps} 
-                        min={0} 
-                        max={100} 
-                        step={1} 
-                        unit="회" 
-                        onChange={(value) => handleRepsChange(value, index)} 
+                      <Stepper
+                        value={set.reps}
+                        min={0}
+                        max={100}
+                        step={1}
+                        unit="회"
+                        onChange={(value) => handleRepsChange(value, index)}
                       />
                     </StepperGroup>
                     <ButtonGroup>
-                      <SecondaryButton 
-                        size="s" 
-                        disabled={sets.length === 1} 
+                      <SecondaryButton
+                        size="s"
+                        disabled={sets.length === 1}
                         fontSize="32px"
                         onClick={() => handleRemoveSet(index)}
                       >
@@ -305,14 +307,20 @@ const ExerciseSetupPage = () => {
               ))}
             </SetsContainer>
             <ButtonWrapper>
-              <TertiaryButton 
-                size="xl" 
+              <TertiaryButton
+                size="xl"
                 fontSize="54px"
                 onClick={handleGoToSelectExercise}
               >
                 다른 운동하러 가기
               </TertiaryButton>
-              <PrimaryButton size="xl" fontSize="54px" onClick={handleGoToCompletion}>운동하러 가기</PrimaryButton>
+              <PrimaryButton
+                size="xl"
+                fontSize="54px"
+                onClick={handleGoToRealTimeExercise}
+              >
+                운동하러 가기
+              </PrimaryButton>
             </ButtonWrapper>
           </RightContainer>
         </MainContainer>

@@ -1,6 +1,5 @@
 import React, { useRef, useEffect } from "react";
-import { TransformedLandmark } from "../../types";
-import { Landmark } from "@mediapipe/pose";
+import { Landmark } from "../../types";
 
 interface PoseDifferenceVisualizerProps {
   videoElement: HTMLVideoElement | null;
@@ -260,7 +259,14 @@ const PoseDifferenceVisualizer: React.FC<PoseDifferenceVisualizerProps> = ({
     } catch (error) {
       console.error("포즈 차이 시각화 중 오류:", error);
     }
-  }, [videoElement, userLandmarks, guidelineLandmarks, width, height]);
+  }, [
+    videoElement,
+    userLandmarks,
+    guidelineLandmarks,
+    width,
+    height,
+    KEY_JOINTS,
+  ]);
 
   return (
     <canvas
