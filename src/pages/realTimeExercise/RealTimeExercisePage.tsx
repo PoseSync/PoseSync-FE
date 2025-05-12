@@ -123,7 +123,7 @@ const CountText = styled.div`
   text-align: center;
 `;
 
-const RealTimeExercisePage = () => {
+const RealTimeExercisePage: React.FC = () => {
   const navigate = useNavigate();
   const exercise = useExerciseStore((state) => state.selectedExercise);
   const sets = useExerciseStore((state) => state.sets);
@@ -133,7 +133,8 @@ const RealTimeExercisePage = () => {
   const [isTransmitting, setIsTransmitting] = useState(false);
   const [count, setCount] = useState(0);
   const [feedbacks, setFeedbacks] = useState<string[]>([]);
-  const [visualizationMode, setVisualizationMode] = useState<string>("2d");
+  // 3D 모드를 사용하지 않으므로 항상 "2d"로 고정
+  const visualizationMode = "2d";
 
   useEffect(() => {
     // 필요한 데이터가 없으면 설정 페이지로 리다이렉트
@@ -152,7 +153,11 @@ const RealTimeExercisePage = () => {
     setCount(newCount);
 
     // 현재 세트 목표 횟수 달성 시 다음 세트로 넘어가기
-    if (sets && newCount >= sets[currentSet - 1]?.reps) {
+    if (
+      sets &&
+      currentSet <= sets.length &&
+      newCount >= sets[currentSet - 1]?.reps
+    ) {
       if (currentSet < sets.length) {
         // 다음 세트로 넘어가기 전 피드백 추가
         handleFeedback(`${currentSet}세트 완료! 다음 세트를 준비하세요.`);
@@ -177,13 +182,11 @@ const RealTimeExercisePage = () => {
     setIsTransmitting((prev) => !prev);
   };
 
-  // 시각화 모드 토글
-  const toggleVisualizationMode = () => {
-    setVisualizationMode((prev) => (prev === "2d" ? "3d" : "2d"));
-  };
-
   // 현재 세트 정보
-  const currentSetData = sets && sets[currentSet - 1];
+  const currentSetData =
+    sets && sets.length > 0 && currentSet <= sets.length
+      ? sets[currentSet - 1]
+      : null;
 
   if (!exercise || !currentSetData) {
     return (
@@ -234,18 +237,6 @@ const RealTimeExercisePage = () => {
                   {currentSetData.weight}kg × {currentSetData.reps}회
                 </div>
                 <div style={{ display: "flex", gap: "10px" }}>
-                  <button
-                    onClick={toggleVisualizationMode}
-                    style={{
-                      background: "var(--gray-700)",
-                      padding: "10px 20px",
-                      borderRadius: "var(--radius-xs)",
-                      color: "white",
-                      border: "none",
-                    }}
-                  >
-                    {visualizationMode === "2d" ? "3D 보기" : "2D 보기"}
-                  </button>
                   <button
                     onClick={toggleTransmission}
                     style={{

@@ -1,6 +1,42 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Landmark } from "../../types";
-import { POSE_LANDMARKS_NAMES } from "../../utils/pose/poseUtils";
+
+// 랜드마크 이름 상수 정의
+const POSE_LANDMARKS_NAMES: Record<number, string> = {
+  0: "코",
+  1: "왼눈 안쪽",
+  2: "왼눈",
+  3: "왼눈 바깥쪽",
+  4: "오른눈 안쪽",
+  5: "오른눈",
+  6: "오른눈 바깥쪽",
+  7: "왼쪽 귀",
+  8: "오른쪽 귀",
+  9: "입 왼쪽",
+  10: "입 오른쪽",
+  11: "왼쪽 어깨",
+  12: "오른쪽 어깨",
+  13: "왼쪽 팔꿈치",
+  14: "오른쪽 팔꿈치",
+  15: "왼쪽 손목",
+  16: "오른쪽 손목",
+  17: "왼쪽 새끼손가락",
+  18: "오른쪽 새끼손가락",
+  19: "왼쪽 검지",
+  20: "오른쪽 검지",
+  21: "왼쪽 엄지",
+  22: "오른쪽 엄지",
+  23: "왼쪽 골반",
+  24: "오른쪽 골반",
+  25: "왼쪽 무릎",
+  26: "오른쪽 무릎",
+  27: "왼쪽 발목",
+  28: "오른쪽 발목",
+  29: "왼쪽 발뒤꿈치",
+  30: "오른쪽 발뒤꿈치",
+  31: "왼쪽 발가락",
+  32: "오른쪽 발가락",
+};
 
 interface LandmarkComparisonViewProps {
   userLandmarks: Landmark[];

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Socket, io } from "socket.io-client";
-import { TransformedLandmark, ProcessedResult } from "../types";
+import { Landmark, ProcessedResult } from "../types";
 
 interface UseSocketOptions {
   phoneNumber: string;
@@ -102,11 +102,6 @@ export const useSocket = (options: UseSocketOptions) => {
       timeout: 5000,
     });
 
-    // 디버그 로깅을 위한 모든 이벤트 리스너
-    newSocket.onAny((event, ...args) => {
-      // console.log(`🔄 소켓 이벤트: ${event}`, args);
-    });
-
     // 연결 이벤트 처리
     newSocket.on("connect", () => {
       if (!mountedRef.current) return;
@@ -173,8 +168,6 @@ export const useSocket = (options: UseSocketOptions) => {
 
         const now = performance.now();
         const requestId = data.requestId;
-
-        // console.log("📥 서버에서 결과 수신:", data);
 
         // 레이턴시 계산
         if (requestId && latencyRecordsRef.current[requestId]) {
@@ -347,16 +340,16 @@ export const useSocket = (options: UseSocketOptions) => {
   const disconnectClient = useCallback(() => {
     if (!socket) return;
 
-    // ① 서버에 패킷만 날린다
+    // 서버에 패킷만 날린다
     socket.emit("disconnect_client", { phoneNumber });
 
-    // ② 실제 연결을 끊는다
+    // 실제 연결을 끊는다
     socket.disconnect();
   }, [socket, phoneNumber]);
 
   // 포즈 데이터 전송 함수
   const sendPose = useCallback(
-    (landmarks: TransformedLandmark[], requestId?: string): boolean => {
+    (landmarks: Landmark[], requestId?: string): boolean => {
       if (!socket || !isConnected || !mountedRef.current) {
         return false;
       }
@@ -378,12 +371,7 @@ export const useSocket = (options: UseSocketOptions) => {
         };
 
         // 데이터 객체 생성
-        const data: {
-          phoneNumber: string;
-          exerciseType: string;
-          landmarks: TransformedLandmark[];
-          requestId: string;
-        } = {
+        const data = {
           phoneNumber,
           exerciseType,
           landmarks,

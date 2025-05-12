@@ -1,12 +1,21 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { PoseLandmarker, FilesetResolver } from "@mediapipe/tasks-vision";
 import { PoseResult, Landmark } from "../types";
-import { MediaPipeLandmark } from "../types";
 
 // PoseLandmarker 결과 타입 정의
 interface PoseLandmarkerResult {
-  landmarks?: MediaPipeLandmark[][];
-  worldLandmarks?: MediaPipeLandmark[][];
+  landmarks?: {
+    x: number;
+    y: number;
+    z: number;
+    visibility?: number;
+  }[][];
+  worldLandmarks?: {
+    x: number;
+    y: number;
+    z: number;
+    visibility?: number;
+  }[][];
 }
 
 interface UseMediaPipeOptions {
@@ -26,7 +35,7 @@ export const useMediaPipe = (
   const [error, setError] = useState<Error | null>(null);
 
   // 랜드마크 상태 관리
-  const [rawLandmarks, setRawLandmarks] = useState<MediaPipeLandmark[]>([]);
+  const [rawLandmarks, setRawLandmarks] = useState<Landmark[]>([]);
 
   // 원본 MediaPipe 결과 저장 (내장 시각화용)
   const [mediaPipeResults, setMediaPipeResults] =
@@ -92,19 +101,22 @@ export const useMediaPipe = (
         setMediaPipeResults(results);
 
         // 원본 랜드마크 저장 (시각화 및 서버 전송용)
-        setRawLandmarks(results.landmarks[0]);
+        // ID를 추가하여 저장
+        const landmarksWithId = results.landmarks[0].map((lm, index) => ({
+          id: index,
+          x: lm.x,
+          y: lm.y,
+          z: lm.z,
+          visibility: lm.visibility,
+        }));
+
+        setRawLandmarks(landmarksWithId);
 
         // PoseResult 객체 생성 (사용자 콜백용)
         const poseResult: PoseResult = {
-          poseLandmarks: results.landmarks[0].map((lm, index) => ({
-            id: index, // ID 추가 (인덱스 기반)
-            x: lm.x,
-            y: lm.y,
-            z: lm.z,
-            visibility: lm.visibility,
-          })),
+          poseLandmarks: landmarksWithId,
           poseWorldLandmarks: results.worldLandmarks[0].map((lm, index) => ({
-            id: index, // ID 추가 (인덱스 기반)
+            id: index,
             x: lm.x,
             y: lm.y,
             z: lm.z,

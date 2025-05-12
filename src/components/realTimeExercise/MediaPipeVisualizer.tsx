@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState } from "react";
+import React, { useRef, useEffect } from "react";
 import * as drawingUtils from "@mediapipe/drawing_utils";
 import * as mpPose from "@mediapipe/pose";
 import { mediaPipeLandmarkStabilizer } from "../../utils/filter/LandmarkStabilizer";
@@ -47,25 +47,6 @@ const MediaPipeVisualizer: React.FC<MediaPipeVisualizerProps> = ({
   isGuideline = false, // 기본적으로 가이드라인이 아님
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [stabilizedLandmarks, setStabilizedLandmarks] = useState<
-    MediaPipeLandmark[]
-  >([]);
-
-  // 랜드마크 안정화 및 상태 업데이트
-  useEffect(() => {
-    if (!results || !results.landmarks || results.landmarks.length === 0) {
-      return;
-    }
-
-    // 랜드마크 안정화 적용
-    const landmarks = results.landmarks[0];
-    if (landmarks) {
-      const stabilized = isGuideline
-        ? landmarks.map((lm) => ({ ...lm })) // 복사본 생성
-        : mediaPipeLandmarkStabilizer.stabilizeMediaPipeLandmarks(landmarks);
-      setStabilizedLandmarks(stabilized);
-    }
-  }, [results]);
 
   // 안정화된 랜드마크로 캔버스 그리기
   useEffect(() => {
@@ -73,8 +54,9 @@ const MediaPipeVisualizer: React.FC<MediaPipeVisualizerProps> = ({
     if (
       !canvas ||
       !videoElement ||
-      !stabilizedLandmarks ||
-      stabilizedLandmarks.length === 0
+      !results ||
+      !results.landmarks ||
+      results.landmarks.length === 0
     )
       return;
 
@@ -98,6 +80,18 @@ const MediaPipeVisualizer: React.FC<MediaPipeVisualizerProps> = ({
       }
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+      // 랜드마크 안정화 적용
+      const landmarks = results.landmarks[0];
+      let stabilizedLandmarks;
+      if (isGuideline) {
+        // 가이드라인은 안정화 없이 그대로 사용
+        stabilizedLandmarks = landmarks.map((lm) => ({ ...lm })); // 복사본 생성
+      } else {
+        // 사용자 랜드마크는 안정화 적용
+        stabilizedLandmarks =
+          mediaPipeLandmarkStabilizer.stabilizeMediaPipeLandmarks(landmarks);
+      }
+
       // MediaPipe 랜드마크를 NormalizedLandmarkList 형식으로 변환
       // DrawingUtils가 기대하는 형식으로 변환
       const landmarksForDrawing = stabilizedLandmarks.map((lm) => ({
@@ -113,9 +107,6 @@ const MediaPipeVisualizer: React.FC<MediaPipeVisualizerProps> = ({
         : landmarksForDrawing.map((lm, idx) =>
             idx < 11 ? { ...lm, visibility: 0 } : lm
           );
-
-      // 선택한 기본 색상에서 파생된 색상들 생성
-      const baseColor = color;
 
       // 가이드라인 여부에 따른 스타일 설정
       let connectorStyle, pointStyle, shadowBlur;
@@ -147,32 +138,6 @@ const MediaPipeVisualizer: React.FC<MediaPipeVisualizerProps> = ({
         ctx.shadowOffsetX = 0;
         ctx.shadowOffsetY = 0;
 
-        // 디버그 로거 추가 - 13번 랜드마크 좌표 확인----------------------------------------------------
-        if (true) {
-          const landmark13 = filteredLandmarks[11];
-          if (landmark13) {
-            const drawX = landmark13.x * canvas.width;
-            const drawY = landmark13.y * canvas.height;
-            console.log(`${isGuideline ? "파란색" : "녹색"} 11번 랜드마크:`, {
-              원본: { x: landmark13.x, y: landmark13.y },
-              화면좌표: { x: drawX, y: drawY },
-              색상: color,
-            });
-          }
-        }
-
-        // DrawingUtils 호출 전에 13번 랜드마크 로깅
-        if (true && filteredLandmarks[11]) {
-          console.log(
-            `DrawingUtils 호출 전 - ${isGuideline ? "파란색" : "녹색"} 11번:`,
-            {
-              x: filteredLandmarks[11].x,
-              y: filteredLandmarks[11].y,
-              visibility: filteredLandmarks[11].visibility,
-            }
-          );
-        }
-        //-------------------------------------------------------------------------------------------------
         // DrawingUtils를 사용하여 연결선 그리기
         drawingUtils.drawConnectors(
           ctx,
@@ -197,33 +162,6 @@ const MediaPipeVisualizer: React.FC<MediaPipeVisualizerProps> = ({
           color: connectorStyle,
           lineWidth: lineWidth,
         };
-
-        // 디버그 로거 추가 - 13번 랜드마크 좌표 확인----------------------------------------------------
-        if (true) {
-          const landmark13 = filteredLandmarks[11];
-          if (landmark13) {
-            const drawX = landmark13.x * canvas.width;
-            const drawY = landmark13.y * canvas.height;
-            console.log(`${isGuideline ? "파란색" : "녹색"} 11번 랜드마크:`, {
-              원본: { x: landmark13.x, y: landmark13.y },
-              화면좌표: { x: drawX, y: drawY },
-              색상: color,
-            });
-          }
-        }
-
-        // DrawingUtils 호출 전에 13번 랜드마크 로깅
-        if (true && filteredLandmarks[11]) {
-          console.log(
-            `DrawingUtils 호출 전 - ${isGuideline ? "파란색" : "녹색"} 11번:`,
-            {
-              x: filteredLandmarks[11].x,
-              y: filteredLandmarks[11].y,
-              visibility: filteredLandmarks[11].visibility,
-            }
-          );
-        }
-        //-------------------------------------------------------------------------------------------------
 
         // 랜드마크 점 스타일 설정 (녹색, 약간의 발광 효과)
         const landmarkOptions = {
@@ -284,16 +222,12 @@ const MediaPipeVisualizer: React.FC<MediaPipeVisualizerProps> = ({
           }
         }
       });
-
-      // console.log(
-      //   `MediaPipe DrawingUtils 시각화 완료 (색상: ${color}, 가이드라인: ${isGuideline})`
-      // );
     } catch (error) {
       console.error("MediaPipeVisualizer 그리기 오류:", error);
     }
   }, [
     videoElement,
-    stabilizedLandmarks,
+    results,
     width,
     height,
     showFace,
