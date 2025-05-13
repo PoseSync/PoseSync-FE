@@ -1,21 +1,33 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { PoseLandmarker, FilesetResolver } from "@mediapipe/tasks-vision";
-import { PoseResult, Landmark } from "../types";
+import { PoseResult } from "../types";
 
-// PoseLandmarker 결과 타입 정의
+// MediaPipe 결과 타입 정의
 interface PoseLandmarkerResult {
-  landmarks?: {
-    x: number;
-    y: number;
-    z: number;
-    visibility?: number;
-  }[][];
-  worldLandmarks?: {
-    x: number;
-    y: number;
-    z: number;
-    visibility?: number;
-  }[][];
+  landmarks?: Array<
+    Array<{
+      x: number;
+      y: number;
+      z: number;
+      visibility?: number;
+    }>
+  >;
+  worldLandmarks?: Array<
+    Array<{
+      x: number;
+      y: number;
+      z: number;
+      visibility?: number;
+    }>
+  >;
+}
+
+interface LandmarkWithId {
+  id: number;
+  x: number;
+  y: number;
+  z: number;
+  visibility?: number | undefined;
 }
 
 interface UseMediaPipeOptions {
@@ -35,7 +47,7 @@ export const useMediaPipe = (
   const [error, setError] = useState<Error | null>(null);
 
   // 랜드마크 상태 관리
-  const [rawLandmarks, setRawLandmarks] = useState<Landmark[]>([]);
+  const [rawLandmarks, setRawLandmarks] = useState<LandmarkWithId[]>([]);
 
   // 원본 MediaPipe 결과 저장 (내장 시각화용)
   const [mediaPipeResults, setMediaPipeResults] =
@@ -102,19 +114,27 @@ export const useMediaPipe = (
 
         // 원본 랜드마크 저장 (시각화 및 서버 전송용)
         // ID를 추가하여 저장
-        const landmarksWithId = results.landmarks[0].map((lm, index) => ({
-          id: index,
-          x: lm.x,
-          y: lm.y,
-          z: lm.z,
-          visibility: lm.visibility,
-        }));
+        const landmarksWithId: LandmarkWithId[] = results.landmarks[0].map(
+          (lm, index) => ({
+            id: index,
+            x: lm.x,
+            y: lm.y,
+            z: lm.z,
+            visibility: lm.visibility,
+          })
+        );
 
         setRawLandmarks(landmarksWithId);
 
+        // 서버로 전송할 랜드마크는 화면의 거울 상태와 일치해야 함
+        const mirrored = landmarksWithId.map((lm) => ({
+          ...lm,
+          x: 1 - lm.x, // x 좌표 반전 (거울 모드)
+        }));
+
         // PoseResult 객체 생성 (사용자 콜백용)
         const poseResult: PoseResult = {
-          poseLandmarks: landmarksWithId,
+          poseLandmarks: mirrored,
           poseWorldLandmarks: results.worldLandmarks[0].map((lm, index) => ({
             id: index,
             x: lm.x,

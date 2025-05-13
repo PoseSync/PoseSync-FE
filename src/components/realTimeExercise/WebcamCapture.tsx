@@ -5,8 +5,8 @@ interface WebcamCaptureProps {
   width?: number;
   height?: number;
   children?: React.ReactNode;
-  videoElement?: HTMLVideoElement | null; // 추가: 외부에서 전달받은 videoElement
-  hidden?: boolean; // 비디오 요소를 숨기는 옵션 (3D 모드에서 사용)
+  videoElement?: HTMLVideoElement | null;
+  hidden?: boolean;
 }
 
 const WebcamCapture = ({
@@ -14,8 +14,8 @@ const WebcamCapture = ({
   width = 640,
   height = 480,
   children,
-  videoElement: externalVideoElement, // 외부에서 전달받은 videoElement
-  hidden = false, // 비디오 요소를 숨기는 옵션
+  videoElement: externalVideoElement,
+  hidden = false,
 }: WebcamCaptureProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [error, setError] = useState<string | null>(null);
@@ -254,6 +254,7 @@ const WebcamCapture = ({
         className={`w-full h-full object-cover rounded-lg ${
           hidden ? "hidden" : ""
         }`}
+        style={{ transform: "scaleX(-1)" }} // 인라인 스타일로 거울 모드 적용
         autoPlay
         playsInline
         muted

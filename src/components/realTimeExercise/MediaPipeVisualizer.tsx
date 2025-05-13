@@ -138,6 +138,11 @@ const MediaPipeVisualizer: React.FC<MediaPipeVisualizerProps> = ({
         ctx.shadowOffsetX = 0;
         ctx.shadowOffsetY = 0;
 
+        // 좌우 반전된 좌표계에서 그리기 위해 변환 적용
+        ctx.save();
+        ctx.scale(-1, 1);
+        ctx.translate(-canvas.width, 0);
+
         // DrawingUtils를 사용하여 연결선 그리기
         drawingUtils.drawConnectors(
           ctx,
@@ -148,6 +153,9 @@ const MediaPipeVisualizer: React.FC<MediaPipeVisualizerProps> = ({
 
         // DrawingUtils를 사용하여 랜드마크 그리기
         drawingUtils.drawLandmarks(ctx, filteredLandmarks, landmarkOptions);
+
+        // 변환 복원
+        ctx.restore();
 
         // 그림자 효과 제거 (다음 그리기에 영향 없게)
         ctx.shadowBlur = 0;
@@ -177,6 +185,11 @@ const MediaPipeVisualizer: React.FC<MediaPipeVisualizerProps> = ({
         ctx.shadowOffsetX = 0;
         ctx.shadowOffsetY = 0;
 
+        // 좌우 반전된 좌표계에서 그리기 위해 변환 적용
+        ctx.save();
+        ctx.scale(-1, 1);
+        ctx.translate(-canvas.width, 0);
+
         // DrawingUtils를 사용하여 연결선 그리기
         drawingUtils.drawConnectors(
           ctx,
@@ -188,11 +201,18 @@ const MediaPipeVisualizer: React.FC<MediaPipeVisualizerProps> = ({
         // DrawingUtils를 사용하여 랜드마크 그리기
         drawingUtils.drawLandmarks(ctx, filteredLandmarks, landmarkOptions);
 
+        // 변환 복원
+        ctx.restore();
+
         // 그림자 효과 제거
         ctx.shadowBlur = 0;
       }
 
       // 추가 시각적 효과: 주요 관절에 원형 강조 표시
+      ctx.save();
+      ctx.scale(-1, 1);
+      ctx.translate(-canvas.width, 0);
+
       KEY_JOINTS.forEach((idx) => {
         const lm = filteredLandmarks[idx];
         if (lm && lm.visibility && lm.visibility > 0.5) {
@@ -222,6 +242,8 @@ const MediaPipeVisualizer: React.FC<MediaPipeVisualizerProps> = ({
           }
         }
       });
+
+      ctx.restore();
     } catch (error) {
       console.error("MediaPipeVisualizer 그리기 오류:", error);
     }
