@@ -6,6 +6,8 @@ import { TertiaryButton } from '../../components/buttons/TertiaryButton';
 import { PrimaryButton } from '../../components/buttons/PrimaryButton';
 import { useNavigate } from 'react-router-dom';
 import { useUserStore } from '../../store/useUserStore';
+import { useCreateUser } from '../../hooks/useCreateUser';
+import { toast } from 'react-toastify';
 
 const FullScreen = styled.div`
   width: 3840px;
@@ -149,28 +151,51 @@ const CmLabel = styled.span`
 `;
 
 const HeightInput = () => {
-  const [height, setHeight] = useState('');
+  const [inputHeight, setInputHeight] = useState('');
   const navigate = useNavigate();
   const setUserHeight = useUserStore((state) => state.setHeight);
+  const phoneNumber = useUserStore((state) => state.phoneNumber);
+  const { mutate } = useCreateUser();
 
   // 키패드 입력 처리 함수
   const handleKeyboardInput = (key: string) => {
     if (key === 'backspace') {
-      setHeight(prev => prev.slice(0, -1));
+      setInputHeight(prev => prev.slice(0, -1));
     } else if (/^[0-9]$/.test(key)) {
-      if (height.length >= 3) return;
-      setHeight(prev => prev + key);
+      if (inputHeight.length >= 3) return;
+      setInputHeight(prev => prev + key);
     }
   };
 
   // 키 입력이 2자리 이상이면 완료로 간주
-  const isHeightComplete = height.length >= 2;
+  const isHeightComplete = inputHeight.length >= 2;
 
-  // 전역 키 상태 입력, 임시로 경로 설정했음 추후에 수정해야함.
+  // 전역 키 상태 입력, 동시에 api 호출
   const handleNext = () => {
     if (isHeightComplete) {
-      setUserHeight(height);
-      navigate('/measurement');
+      setUserHeight(inputHeight);
+      mutate({
+        phoneNumber: phoneNumber.replace(/[^0-9]/g, ''),
+        height: Number(inputHeight),
+      },
+    {
+      //흐름상 전화번호 동일은 처리 필요 없음
+      onSuccess: () => {
+        navigate('/measurement');
+      },
+      onError: (error: unknown) => {
+        let msg = "서버에 문제가 있습니다.";
+        if (
+          error &&
+          typeof error === 'object' &&
+          'response' in error &&
+          (error.response as { data?: { error?: string } })?.data?.error === "phoneNumber and height are required"
+        ) {
+          msg = "핸드폰 번호 혹은 키가 입력되지 않았습니다.";
+        }
+        toast.error(msg);
+      }
+    });
     }
   };
 
@@ -195,7 +220,7 @@ const HeightInput = () => {
           <PhoneLabelContainer>키 (cm)</PhoneLabelContainer>
           <HeightInputRow>
             <HeightValue>
-              {height}
+              {inputHeight}
               <CmLabel>cm</CmLabel>
             </HeightValue>
           </HeightInputRow>
