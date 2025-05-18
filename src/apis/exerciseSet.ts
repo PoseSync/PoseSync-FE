@@ -6,7 +6,7 @@ export async function saveExerciseSets(
   sets: ExerciseSetRequest[]
 ): Promise<ExerciseSetResponse[]> {
   const response = await axios.post<ExerciseSetResponse[]>(
-    'http://127.0.0.1:5001/create_exercise_set', 
+    'http://127.0.0.1:5001/save_exercise_set', 
     sets
   );
   return response.data;

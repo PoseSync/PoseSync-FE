@@ -11,6 +11,7 @@ import { Stepper } from "../../components/inputs/Stepper";
 import { useExerciseStore } from "../../store/useExerciseStore";
 import { useSaveExerciseSets } from '../../hooks/useSaveExerciseSets';
 import { useUserStore } from '../../store/useUserStore'; // 전화번호 저장소
+import axios from "axios";
 
 const FullScreen = styled.div`
   width: 3840px;
@@ -254,18 +255,35 @@ const ExerciseSetupPage = () => {
   const handleGoToRealTimeExercise = () => {
     if (!exercise) return;
 
+    // 전화번호 유효성 검사
+    if (!phoneNumber) {
+      alert('전화번호가 설정되지 않았습니다. 다시 로그인해주세요.');
+      navigate('/info');
+      return;
+    }
+
     const exerciseType = exercise.type;
     const requests = sets.map(set => ({
-      phone_number: phoneNumber,
-      exerciseType,
+      phone_number: phoneNumber.replace(/[^0-9]/g, ''),  // 숫자만 추출
+      exerciseType,  // exercise_type -> exerciseType
       exercise_weight: set.weight,
       exercise_cnt: set.reps,
     }));
+
+    console.log('Sending data:', requests);
 
     mutate(requests, {
       onSuccess: () => {
         setSetsGlobal(sets);
         navigate("/realtime-exercise");
+      },
+      onError: (error) => {
+        if (axios.isAxiosError(error) && error.response?.data?.error === 'Missing phone_number') {
+          alert('전화번호가 설정되지 않았습니다. 다시 로그인해주세요.');
+          navigate('/info');
+        } else {
+          alert('운동 세트 저장에 실패했습니다. 다시 시도해주세요.');
+        }
       }
     });
   };

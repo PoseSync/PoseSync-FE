@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 
 interface UserState {
   height: string;
@@ -7,9 +8,16 @@ interface UserState {
   setPhoneNumber: (phoneNumber: string) => void;
 }
 
-export const useUserStore = create<UserState>((set) => ({
-  height: '',
-  phoneNumber: '',
-  setHeight: (height) => set({ height }),
-  setPhoneNumber: (phoneNumber) => set({ phoneNumber }),
-})); 
+export const useUserStore = create<UserState>()(
+  persist(
+    (set) => ({
+      height: '',
+      phoneNumber: '',
+      setHeight: (height) => set({ height }),
+      setPhoneNumber: (phoneNumber) => set({ phoneNumber }),
+    }),
+    {
+      name: 'user-storage', // 로컬 스토리지에 저장될 키 이름
+    }
+  )
+); 

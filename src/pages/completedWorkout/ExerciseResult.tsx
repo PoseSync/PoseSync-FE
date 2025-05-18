@@ -177,7 +177,9 @@ const ExerciseResult = () => {
   const navigate = useNavigate();
   const exercise = useExerciseStore(state => state.selectedExercise);
   const phoneNumber = useUserStore(state => state.phoneNumber);
-  const { data, isLoading, error } = useGetExerciseSetResult(phoneNumber);
+  const { data, isLoading, error } = useGetExerciseSetResult(
+    phoneNumber.replace(/[^0-9]/g, '')  // 숫자만 추출
+  );
 
   const handleGoToHome = () => {
     navigate('/');
