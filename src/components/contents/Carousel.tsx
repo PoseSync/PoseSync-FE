@@ -7,14 +7,18 @@ import styled from "styled-components";
 import ExerciseCard from "./ExerciseCard";
 import { Swiper as SwiperType } from "swiper";
 
+// 카드 타입 정의
+interface ExerciseCardData {
+  id: string;
+  title: string;
+  description: string;
+  imageSrc: string;
+  available?: boolean;
+  onClick?: () => void;
+}
+
 interface CarouselProps {
-  cards: {
-    id: string;
-    title: string;
-    description: string;
-    imageSrc: string;
-    onClick?: () => void;
-  }[];
+  cards: ExerciseCardData[];
 }
 
 const CarouselWrapper = styled.div`
@@ -58,6 +62,32 @@ const Carousel: React.FC<CarouselProps> = ({ cards }) => {
     }, 20);
   };
 
+  // 카드 클릭 핸들러 - any 대신 명시적 타입 사용
+  const handleCardClick = (card: ExerciseCardData, idx: number) => {
+    // 준비 중인 카드인 경우
+    if (card.available === false) {
+      alert(
+        `${card.title}은(는) 현재 준비 중입니다. 다른 운동을 선택해주세요.`
+      );
+
+      // 알림 후에 원래 활성화된 카드로 돌아가기
+      // centerIndex에 해당하는 카드로 자동으로 돌아가게 합니다
+      if (swiperRef.current) {
+        swiperRef.current.slideToLoop(centerIndex, 300);
+      }
+      return;
+    }
+
+    // 사용 가능한 카드이면 슬라이더 이동 후 onClick 실행
+    if (swiperRef.current) {
+      swiperRef.current.slideToLoop(idx, 600);
+    }
+
+    setTimeout(() => {
+      if (card.onClick) card.onClick();
+    }, 600);
+  };
+
   return (
     <CarouselWrapper>
       <Swiper
@@ -92,14 +122,8 @@ const Carousel: React.FC<CarouselProps> = ({ cards }) => {
               imageAlt={card.title}
               subtitle={card.title}
               bodyText={card.description}
-              onClick={() => {
-                if (swiperRef.current) {
-                  swiperRef.current.slideToLoop(idx, 600);
-                }
-                setTimeout(() => {
-                  if (card.onClick) card.onClick();
-                }, 600);
-              }}
+              available={card.available} // 가용성 정보 전달
+              onClick={() => handleCardClick(card, idx)}
             />
           </SwiperSlide>
         ))}

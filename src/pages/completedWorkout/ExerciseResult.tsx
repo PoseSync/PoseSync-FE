@@ -2,11 +2,13 @@ import React from 'react';
 import styled from 'styled-components';
 import Gnb from '../../components/gnb/Gnb';
 import CheckImg from '../../assets/images/items/check.png';
-//import XImg from '../../assets/images/items/x.png';
+import XImg from '../../assets/images/items/x.png';
 import { useExerciseStore } from '../../store/useExerciseStore';
 import { TertiaryButton } from '../../components/buttons/TertiaryButton';
 import { PrimaryButton } from '../../components/buttons/PrimaryButton';
 import { useNavigate } from 'react-router-dom';
+import { useUserStore } from '../../store/useUserStore';
+import { useGetExerciseSetResult } from '../../hooks/useGetExerciseSetResult';
 
 const Container = styled.div`
   width: 3840px;
@@ -174,7 +176,8 @@ const ButtonWrapper = styled.div`
 const ExerciseResult = () => {
   const navigate = useNavigate();
   const exercise = useExerciseStore(state => state.selectedExercise);
-  const sets = useExerciseStore(state => state.sets);
+  const phoneNumber = useUserStore(state => state.phoneNumber);
+  const { data, isLoading, error } = useGetExerciseSetResult(phoneNumber);
 
   const handleGoToHome = () => {
     navigate('/');
@@ -201,20 +204,26 @@ const ExerciseResult = () => {
             </LeftContainer>
             <RightContainer>
                 <SetBox>
-                  {sets.map((set, index) => (
-                    <SetItem key={index}>
+                  {isLoading && <div>로딩 중...</div>}
+                  {error && <div>에러 발생</div>}
+                  {data && data.sets.map((set, index) => (
+                    <SetItem key={set.id}>
                       <SetItemDetail>
                         <SetKgCount>
                           <Set>
                             {index + 1} set
                           </Set>
                           <SetVolume>
-                            {set.weight} kg  x  {set.reps} 회
+                            {set.exercise_weight} kg  x  {set.target_count} 회
                           </SetVolume>
                         </SetKgCount>
                       </SetItemDetail>
                       <ItemContainer>
-                        <img src={CheckImg} alt="체크 표시" style={{ width: '80px', height: '80px' }} />
+                        <img
+                          src={set.is_success ? CheckImg : XImg}
+                          alt={set.is_success ? "체크 표시" : "엑스 표시"}
+                          style={{ width: '80px', height: '80px' }}
+                        />
                       </ItemContainer>
                     </SetItem>
                   ))}
