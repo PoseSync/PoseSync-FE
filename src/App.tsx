@@ -10,8 +10,6 @@ import Completion from "./pages/completedWorkout/Completion";
 import ExerciseResult from "./pages/completedWorkout/ExerciseResult";
 import RealTimeExercisePage from "./pages/realTimeExercise/RealTimeExercisePage";
 
-import IconTestPage from "./pages/icon-test/IconTestPage";
-
 function App() {
   return (
     <BrowserRouter>
@@ -26,8 +24,6 @@ function App() {
         <Route path="/realtime-exercise" element={<RealTimeExercisePage />} />
         <Route path="/completed" element={<Completion />} />
         <Route path="/exercise-result" element={<ExerciseResult />} />
-
-        <Route path="/icon-test" element={<IconTestPage />} />
       </Routes>
     </BrowserRouter>
   );

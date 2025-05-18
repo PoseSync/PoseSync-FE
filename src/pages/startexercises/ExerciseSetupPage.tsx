@@ -189,7 +189,7 @@ const ButtonWrapper = styled.div`
   width: 1160px;
   height: 170px;
   display: flex;
-  gap: var(--gap-11);
+  gap: var(--gap-9);
   justify-content: flex-end;
 `;
 

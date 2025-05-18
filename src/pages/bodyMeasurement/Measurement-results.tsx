@@ -4,6 +4,8 @@ import Gnb from '../../components/gnb/Gnb';
 import UnionImg from '../../assets/images/items/Union.png';
 import LineImg from '../../assets/images/items/line.png';
 import { useUserStore } from '../../store/useUserStore';
+import StartExerciseToast from '../../components/resource/StartExerciseToast';
+import { useNavigate } from 'react-router-dom';
 
 const FullScreenContainer = styled.div`
   width: 3840px;
@@ -26,15 +28,15 @@ const MainContainer = styled.div`
 `;
 
 const MainBox = styled.div`
-  width: 2728.078125px;
-  height: 1726.5233154296875px;
+  width: 3048px;
+  height: 1728px;
   position: relative;
 `;
 
 const CircleBlur = styled.div`
   position: absolute;
-  top: 202.79px;
-  left: 703.2px;
+  top: 203.53px;
+  left: 815.2px;
   width: 1321.6796875px;
   height: 1321.6796875px;
   border-radius: 50%;
@@ -44,9 +46,10 @@ const CircleBlur = styled.div`
 
 const ImageContainer = styled.div`
   position: absolute;
-  width: 612.2822875976562px;
-  height: 1726.5234375px;
-  left: 1056.7px;
+  width: 612.28px;
+  height: 1726.52px;
+  left: 1168.73px;
+  top: 0.74px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -54,10 +57,10 @@ const ImageContainer = styled.div`
 
 const LineContainer = styled.div`
   position: absolute;
-  width: 1719.08px;
-  height: 1367.45px;
-  top: 316.84px;
-  left: 527px;
+  width: 1740px;
+  height: 1371px;
+  top: 315px;
+  left: 631px;
   pointer-events: none;
 `;
 
@@ -133,29 +136,28 @@ const BaseBodyPartContainer = styled.div`
 const ArmContainer = styled(BaseBodyPartContainer)`
   width: 639px;
   height: 300px;
-  top: 442.3px;
-  left: -112px;
+  top: 443.04px;
 `;
 
 const FemurContainer = styled(BaseBodyPartContainer)`
   width: 707px;
   height: 300px;
-  top: 1058.3px;
+  top: 1059.04px;
   left: -18.25;
 `;
 
 const HipJointContainer = styled(BaseBodyPartContainer)`
   width: 707px;
   height: 300px;
-  top: 1058.3px;
-  left: 2037.08px;
+  top: 1043.04px;
+  left: 2341px;
 `;
 
 const BodyRatioContainer = styled(BaseBodyPartContainer)`
   width: 690px;
   height: 300px;
-  top: 442.3px;
-  left: 2246.08px;
+  top: 443.04px;
+  left: 2358px;
 `;
 
 const InfoTextBase = styled.div`
@@ -250,8 +252,15 @@ const BodyRatioResultText = styled(ResultTextBase)`
   margin-bottom: 0;
 `;
 
+const ToastPositioner = styled.div`
+  position: absolute;
+  top: 1484px;
+  left: 19px;
+`;
+
 const MeasurementResults = () => {
   const height = useUserStore((state) => state.height);
+  const navigate = useNavigate();
 
   return (
     <FullScreenContainer>
@@ -288,6 +297,9 @@ const MeasurementResults = () => {
             <HipJointInfoText>고관절 너비 | 신장 대비 약 0.20</HipJointInfoText>
             <HipJointResultText>고관절 너비 평균형</HipJointResultText>
           </HipJointContainer>
+          <ToastPositioner>
+            <StartExerciseToast onStart={() => navigate('/startexercises')} />
+          </ToastPositioner>
         </MainBox>
       </MainContainer>
     </FullScreenContainer>
