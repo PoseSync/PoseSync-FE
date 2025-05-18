@@ -52,7 +52,7 @@ const RightTopContainer = styled.div`
 const PhoneLabelContainer = styled.div`
   width: 1470px;
   height: 100px;
-  font-family: 'Pretendard Variable';
+  font-family: "Pretendard Variable";
   font-weight: 600;
   font-size: 80px;
   line-height: 100px;
@@ -65,7 +65,7 @@ const PhoneLabelContainer = styled.div`
 const InnerContentContainer = styled.div`
   width: 1146px;
   height: 1455.3px;
-  background: transparent; 
+  background: transparent;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -88,7 +88,7 @@ const TopInfoContentContainer = styled.div`
 `;
 
 const Title = styled.div`
-  font-family: 'Pretendard Variable';
+  font-family: "Pretendard Variable";
   font-weight: 600;
   font-size: 80px;
   line-height: 100px;
@@ -97,12 +97,12 @@ const Title = styled.div`
 `;
 
 const SubTitle = styled.div`
-  font-family: 'Pretendard Variable';
+  font-family: "Pretendard Variable";
   font-weight: 500;
   font-size: 48px;
   line-height: 64px;
   letter-spacing: -0.48px;
-  color: var(--gray-300, #A8B0BD);
+  color: var(--gray-300, #a8b0bd);
   background: transparent;
 `;
 
@@ -127,7 +127,7 @@ const HeightInputRow = styled.div`
   border-radius: var(--radius-m);
   padding: 0 var(--padding-m);
   font-size: 92px;
-  font-family: 'Pretendard Variable';
+  font-family: "Pretendard Variable";
   font-weight: 700;
   color: var(--white);
   justify-content: center;
@@ -145,7 +145,7 @@ const HeightValue = styled.div`
 
 const CmLabel = styled.span`
   font-size: 92px;
-  font-family: 'Pretendard Variable';
+  font-family: "Pretendard Variable";
   font-weight: 700;
   color: var(--white);
 `;
@@ -208,9 +208,7 @@ const HeightInput = () => {
               <Badge>02</Badge>
               <Title>키를 입력해주세요.</Title>
             </TopInfoContentContainer>
-            <SubTitle>
-             Ai 체형측정을 위한 기본정보를 입력해주세요.
-            </SubTitle>
+            <SubTitle>Ai 체형측정을 위한 기본정보를 입력해주세요.</SubTitle>
           </TopInfoContainer>
           <Keyboard onInput={handleKeyboardInput} />
         </InnerContentContainer>
@@ -226,7 +224,13 @@ const HeightInput = () => {
           </HeightInputRow>
         </RightTopContainer>
         <ButtonRowContainer>
-          <TertiaryButton size="xl" fontSize="48px" onClick={() => navigate('/info')}>이전으로</TertiaryButton>
+          <TertiaryButton
+            size="xl"
+            fontSize="48px"
+            onClick={() => navigate("/info")}
+          >
+            이전으로
+          </TertiaryButton>
           <PrimaryButton
             size="xl"
             fontSize="48px"

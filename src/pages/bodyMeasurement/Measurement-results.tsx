@@ -1,11 +1,35 @@
-import React from 'react';
-import styled from 'styled-components';
-import Gnb from '../../components/gnb/Gnb';
-import UnionImg from '../../assets/images/items/Union.png';
-import LineImg from '../../assets/images/items/line.png';
-import { useUserStore } from '../../store/useUserStore';
+import React, { useEffect, useState } from "react";
+import styled from "styled-components";
+import Gnb from "../../components/gnb/Gnb";
+import UnionImg from "../../assets/images/items/Union.png";
+import LineImg from "../../assets/images/items/line.png";
+import { useUserStore } from "../../store/useUserStore";
 import StartExerciseToast from '../../components/resource/StartExerciseToast';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
+
+// 결과 데이터 인터페이스 정의
+interface AnalysisResult {
+  summary?: {
+    arm_ratio?: string;
+    upper_lower_ratio?: string;
+    femur_tibia_ratio?: string;
+    hip_height_ratio?: string;
+  };
+  classifications?: Record<string, unknown>;
+  ensemble_result?: Record<string, unknown>;
+  db_types?: Record<string, unknown>;
+}
+
+// 위치 상태 인터페이스
+interface LocationState {
+  analysisResult?: AnalysisResult;
+}
+
+// 파싱 결과 인터페이스
+interface ParsedResult {
+  ratio: string;
+  resultText: string;
+}
 
 const FullScreenContainer = styled.div`
   width: 3840px;
@@ -40,7 +64,7 @@ const CircleBlur = styled.div`
   width: 1321.6796875px;
   height: 1321.6796875px;
   border-radius: 50%;
-  background: radial-gradient(50% 50% at 50% 50%, #383C42 0%, #0B0C0D 100%);
+  background: radial-gradient(50% 50% at 50% 50%, #383c42 0%, #0b0c0d 100%);
   pointer-events: none;
 `;
 
@@ -72,13 +96,13 @@ const HeightContainer = styled.div`
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  gap: var(--Gap-2);
+  gap: 16px;
 `;
 
 const HeightText = styled.div`
   width: 243px;
   height: 64px;
-  font-family: 'Pretendard Variable', sans-serif;
+  font-family: "Pretendard Variable", sans-serif;
   font-weight: 500;
   font-size: 48px;
   line-height: 64px;
@@ -93,14 +117,14 @@ const HeightValueContainer = styled.div`
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: var(--Gap-2);
+  gap: 16px;
   color: var(--white);
 `;
 
 const NumberContainer = styled.div`
   width: 151px;
   height: 112px;
-  font-family: 'Pretendard Variable', sans-serif;
+  font-family: "Pretendard Variable", sans-serif;
   font-weight: 600;
   font-size: 88px;
   line-height: 112px;
@@ -111,7 +135,7 @@ const NumberContainer = styled.div`
 const CmContainer = styled.div`
   width: 76px;
   height: 72px;
-  font-family: 'Pretendard Variable', sans-serif;
+  font-family: "Pretendard Variable", sans-serif;
   font-weight: 600;
   font-size: 54px;
   line-height: 72px;
@@ -123,12 +147,12 @@ const CmContainer = styled.div`
 
 const BaseBodyPartContainer = styled.div`
   position: absolute;
-  gap: var(--margin-4);
-  border-radius: var(--radius-xl);
-  padding-top: var(--padding-3xl);
-  padding-right: var(--padding-2xl);
-  padding-bottom: var(--padding-3xl);
-  padding-left: var(--padding-2xl);
+  gap: 32px;
+  border-radius: 32px;
+  padding-top: 56px;
+  padding-right: 52px;
+  padding-bottom: 56px;
+  padding-left: 52px;
   background: var(--gray-800);
   overflow: hidden;
 `;
@@ -166,7 +190,7 @@ const InfoTextBase = styled.div`
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: 'Pretendard Variable', sans-serif;
+  font-family: "Pretendard Variable", sans-serif;
 `;
 
 const ResultTextBase = styled.div`
@@ -175,7 +199,7 @@ const ResultTextBase = styled.div`
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: 'Pretendard Variable', sans-serif;
+  font-family: "Pretendard Variable", sans-serif;
 `;
 
 const ArmInfoText = styled(InfoTextBase)`
@@ -258,9 +282,69 @@ const ToastPositioner = styled.div`
   left: 19px;
 `;
 
-const MeasurementResults = () => {
+const MeasurementResults: React.FC = () => {
+  const location = useLocation();
+  const state = location.state as LocationState;
   const height = useUserStore((state) => state.height);
+  const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(
+    null
+  );
   const navigate = useNavigate();
+
+  useEffect(() => {
+    // location.state에서 체형 분석 결과 가져오기
+    if (state && state.analysisResult) {
+      setAnalysisResult(state.analysisResult);
+    }
+  }, [state]);
+
+  // 기본값 설정
+  const defaultValues = {
+    armRatio: "상완-전완 비율 | 1:0.85",
+    armResultText: "상완비율 평균형",
+    upperLowerRatio: "상체-하체 비율 | 1:1.05",
+    upperLowerResultText: "상하체비율 평균형",
+    femurTibiaRatio: "대퇴골-정강이 비율 | 1:0.95",
+    femurResultText: "대퇴골비율 평균형",
+    hipRatio: "고관절-신장 비율 | 0.20",
+    hipResultText: "고관절 너비 평균형",
+  };
+
+  // 분석 결과에서 데이터 추출
+  const armRatioText =
+    analysisResult?.summary?.arm_ratio || defaultValues.armRatio;
+  const upperLowerRatioText =
+    analysisResult?.summary?.upper_lower_ratio || defaultValues.upperLowerRatio;
+  const femurTibiaRatioText =
+    analysisResult?.summary?.femur_tibia_ratio || defaultValues.femurTibiaRatio;
+  const hipRatioText =
+    analysisResult?.summary?.hip_height_ratio || defaultValues.hipRatio;
+
+  // 결과 텍스트 파싱 함수
+  const parseResultText = (text: string): ParsedResult => {
+    const parts = text.split("|");
+    if (parts.length >= 2) {
+      // 부분을 사용하지 않더라도 정보 제공을 위해 분리는 함
+      // 좌측 부분은 사용하지 않으므로 변수로 할당하지 않음
+      // const leftPart = parts[0].trim(); - 이 부분이 오류의 원인
+      const rightPart = parts[1].trim();
+
+      const ratioEndIndex = rightPart.search(/[A-Za-z가-힣]/);
+      if (ratioEndIndex > 0) {
+        const ratio = rightPart.substring(0, ratioEndIndex).trim();
+        const resultText = rightPart.substring(ratioEndIndex).trim();
+        return { ratio, resultText };
+      }
+      return { ratio: rightPart, resultText: "" };
+    }
+    // 구분자가 없는 경우 기본값 반환
+    return { ratio: "", resultText: text };
+  };
+
+  const armRatioParsed = parseResultText(armRatioText);
+  const upperLowerRatioParsed = parseResultText(upperLowerRatioText);
+  const femurTibiaParsed = parseResultText(femurTibiaRatioText);
+  const hipRatioParsed = parseResultText(hipRatioText);
 
   return (
     <FullScreenContainer>
@@ -272,7 +356,11 @@ const MeasurementResults = () => {
             <img src={UnionImg} alt="인체 실루엣" />
           </ImageContainer>
           <LineContainer>
-            <img src={LineImg} alt="Line" style={{ width: '100%', height: '100%' }} />
+            <img
+              src={LineImg}
+              alt="Line"
+              style={{ width: "100%", height: "100%" }}
+            />
           </LineContainer>
           <HeightContainer>
             <HeightText>키</HeightText>
@@ -282,20 +370,35 @@ const MeasurementResults = () => {
             </HeightValueContainer>
           </HeightContainer>
           <ArmContainer>
-            <ArmInfoText>상완-전완 비율 | 1:0.85</ArmInfoText>
-            <ArmResultText>전완 길이 발달형</ArmResultText>
+            <ArmInfoText>상완-전완 비율 | {armRatioParsed.ratio}</ArmInfoText>
+            <ArmResultText>
+              {armRatioParsed.resultText || defaultValues.armResultText}
+            </ArmResultText>
           </ArmContainer>
           <FemurContainer>
-            <FemurInfoText>대퇴골 비율 | 신장 대비 약 22%</FemurInfoText>
-            <FemurResultText>정강이 비율 발달형</FemurResultText>
+            <FemurInfoText>
+              대퇴골-정강이 비율 | {femurTibiaParsed.ratio}
+            </FemurInfoText>
+            <FemurResultText>
+              {femurTibiaParsed.resultText || defaultValues.femurResultText}
+            </FemurResultText>
           </FemurContainer>
           <BodyRatioContainer>
-            <BodyRatioInfoText>상하체 비율 | 1:1.2</BodyRatioInfoText>
-            <BodyRatioResultText>상하체비율 평균형</BodyRatioResultText>
+            <BodyRatioInfoText>
+              상하체 비율 | {upperLowerRatioParsed.ratio}
+            </BodyRatioInfoText>
+            <BodyRatioResultText>
+              {upperLowerRatioParsed.resultText ||
+                defaultValues.upperLowerResultText}
+            </BodyRatioResultText>
           </BodyRatioContainer>
           <HipJointContainer>
-            <HipJointInfoText>고관절 너비 | 신장 대비 약 0.20</HipJointInfoText>
-            <HipJointResultText>고관절 너비 평균형</HipJointResultText>
+            <HipJointInfoText>
+              고관절-신장 비율 | {hipRatioParsed.ratio}
+            </HipJointInfoText>
+            <HipJointResultText>
+              {hipRatioParsed.resultText || defaultValues.hipResultText}
+            </HipJointResultText>
           </HipJointContainer>
           <ToastPositioner>
             <StartExerciseToast onStart={() => navigate('/startexercises')} />

@@ -5,7 +5,7 @@ export interface Landmark {
   y: number;
   z: number;
   visibility?: number;
-  
+  [key: string]: number | undefined;
 }
 
 // MediaPipe 전체 결과 타입 (Tasks API 호환용으로 수정)

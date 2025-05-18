@@ -246,8 +246,8 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
               height={720}
               showFace={showFace}
               color="#4ade80" // 밝은 녹색
-              lineWidth={1}
-              pointSize={1}
+              lineWidth={3}
+              pointSize={2}
             />
           )}
 
@@ -261,7 +261,7 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
               showFace={showFace}
               color="#60a5fa" // 밝은 파란색
               lineWidth={3}
-              pointSize={4}
+              pointSize={2}
               isGuideline={true}
             />
           )}

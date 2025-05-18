@@ -11,8 +11,8 @@ interface WebcamCaptureProps {
 
 const WebcamCapture = ({
   onVideoElementReady,
-  width = 640,
-  height = 480,
+  width = 2300,
+  height = 1683,
   children,
   videoElement: externalVideoElement,
   hidden = false,
@@ -99,11 +99,16 @@ const WebcamCapture = ({
 
       try {
         console.log("카메라 스트림 요청 중...", selectedCamera);
+
+        // 비율에 맞는 해상도 요청
+        // 2300:1683 비율에 맞춰 적절한 해상도 설정
         const constraints: MediaStreamConstraints = {
           video: {
             deviceId: { exact: selectedCamera },
-            width: { ideal: width },
-            height: { ideal: height },
+            width: { ideal: 1920 },
+            height: { ideal: 1400 },
+            // 비율을 약 1.37:1로 설정하여 2300:1683과 비슷하게 유지
+            aspectRatio: { ideal: 1.37 },
           },
           audio: false,
         };
@@ -115,7 +120,11 @@ const WebcamCapture = ({
 
         videoStream = stream;
         const videoTrack = stream.getVideoTracks()[0];
+
+        // 실제로 얻은 해상도 로그
+        const settings = videoTrack.getSettings();
         console.log("카메라 획득:", videoTrack.label);
+        console.log("실제 해상도:", settings.width, "x", settings.height);
 
         // 비디오 요소에 스트림 설정
         videoRef.current.srcObject = stream;
@@ -247,18 +256,21 @@ const WebcamCapture = ({
         </div>
       )}
 
-      <video
-        ref={videoRef}
-        width={width}
-        height={height}
-        className={`w-full h-full object-cover rounded-lg ${
-          hidden ? "hidden" : ""
-        }`}
-        style={{ transform: "scaleX(-1)" }} // 인라인 스타일로 거울 모드 적용
-        autoPlay
-        playsInline
-        muted
-      />
+      {/* 여기서 비디오 컨테이너 스타일을 수정하여 배경색과 contain 속성 적용 */}
+      <div className="w-full h-full bg-gray-900 flex items-center justify-center">
+        <video
+          ref={videoRef}
+          width={width}
+          height={height}
+          className={`w-full h-full object-contain rounded-lg ${
+            hidden ? "hidden" : ""
+          }`}
+          style={{ transform: "scaleX(-1)" }} // 인라인 스타일로 거울 모드 적용
+          autoPlay
+          playsInline
+          muted
+        />
+      </div>
 
       {cameraReady && children}
     </div>
