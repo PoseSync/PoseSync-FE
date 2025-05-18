@@ -1,196 +1,134 @@
-import { OneEuroFilter } from "./OneEuroFilter";
-import { Landmark, TransformedLandmark } from "../../types";
+import { Landmark } from "../../types";
 
 /**
  * 랜드마크 안정화를 위한 클래스
- * One Euro Filter를 사용하여 랜드마크 좌표의 노이즈를 줄임
+ * 데드존 필터를 사용하여 랜드마크 좌표의 노이즈를 줄임
  */
 export class LandmarkStabilizer {
-  // 각 랜드마크 ID의 X, Y 좌표를 위한 필터
-  private xFilters: Map<number, OneEuroFilter> = new Map();
-  private yFilters: Map<number, OneEuroFilter> = new Map();
-  private zFilters: Map<number, OneEuroFilter> = new Map();
-
-  // 필터 파라미터
-  private readonly minCutoff: number;
-  private readonly beta: number;
-  private readonly dCutoff: number;
-
-  // 이전 프레임의 랜드마크 (보간용)
-  private prevLandmarks: Map<number, MediaPipeStruct> = new Map();
+  private deadZone: number;
+  private prevLandmarks: Record<number, Landmark> = {};
 
   /**
-   * @param minCutoff - 최소 cutoff 주파수 (낮을수록 더 많은 필터링)
-   * @param beta - 속도 기반 스무딩 파라미터 (높을수록 빠른 움직임에서 덜 지연됨)
-   * @param dCutoff - 미분 cutoff 주파수
+   * @param deadZone 움직임을 무시할 임계값 (기본값: 0.01)
    */
-  constructor(
-    minCutoff: number = 0.001,
-    beta: number = 0.1,
-    dCutoff: number = 1.0
-  ) {
-    this.minCutoff = minCutoff;
-    this.beta = beta;
-    this.dCutoff = dCutoff;
+  constructor(deadZone: number = 0.01) {
+    this.deadZone = deadZone;
   }
 
   /**
-   * 랜드마크 ID에 해당하는 필터를 가져오거나 생성
+   * 데드존 적용: 변화량이 임계값보다 작으면 이전 값 유지
    */
-  private getOrCreateFilters(id: number): {
-    xFilter: OneEuroFilter;
-    yFilter: OneEuroFilter;
-    zFilter: OneEuroFilter;
-  } {
-    if (!this.xFilters.has(id)) {
-      this.xFilters.set(
-        id,
-        new OneEuroFilter(this.minCutoff, this.beta, this.dCutoff)
-      );
-      this.yFilters.set(
-        id,
-        new OneEuroFilter(this.minCutoff, this.beta, this.dCutoff)
-      );
-      this.zFilters.set(
-        id,
-        new OneEuroFilter(this.minCutoff, this.beta, this.dCutoff)
-      );
+  private applyDeadZone(newValue: number, oldValue: number): number {
+    if (Math.abs(newValue - oldValue) < this.deadZone) {
+      return oldValue; // 변화가 작으면 이전 값 유지
     }
-
-    return {
-      xFilter: this.xFilters.get(id)!,
-      yFilter: this.yFilters.get(id)!,
-      zFilter: this.zFilters.get(id)!,
-    };
-  }
-
-  /**
-   * 데드존 기반 필터링
-   * 작은 움직임은 무시
-   */
-  private applyDeadZone(
-    newValue: number,
-    oldValue: number,
-    threshold: number
-  ): number {
-    if (Math.abs(newValue - oldValue) < threshold) {
-      return oldValue;
-    }
-    return newValue;
+    return newValue; // 변화가 크면 새 값 사용
   }
 
   /**
    * MediaPipe 랜드마크 안정화
+   *
    * @param landmarks 랜드마크 배열
-   * @param timestamp 현재 타임스탬프 (기본값: 현재 시간)
-   * @param deadZone 데드존 임계값 (기본값: 0.002) - 작은 움직임 무시
+   * @param deadZone 기본값 대신 사용할 데드존 (선택사항)
    * @returns 안정화된 랜드마크 배열
    */
-  stabilizeMediaPipeLandmarks<T extends MediaPipeStruct>(
+  stabilizeMediaPipeLandmarks<T extends Landmark>(
     landmarks: T[],
-    timestamp: number = performance.now(),
-    deadZone: number = 0.002
+    deadZone?: number
   ): T[] {
-    if (!landmarks || landmarks.length === 0) return landmarks;
+    if (!landmarks || landmarks.length === 0) {
+      return landmarks;
+    }
 
-    return landmarks.map((landmark, index) => {
+    // 호출 시 데드존 값이 지정되면 임시로 값 변경
+    let originalDeadZone: number | undefined;
+    if (deadZone !== undefined) {
+      originalDeadZone = this.deadZone;
+      this.deadZone = deadZone;
+    }
+
+    const stabilizedLandmarks: T[] = [];
+
+    for (let i = 0; i < landmarks.length; i++) {
+      const landmark = landmarks[i];
+
       // ID가 있으면 사용, 없으면 인덱스를 ID로 사용
-      const id =
-        "id" in landmark && typeof landmark.id === "number"
-          ? landmark.id
-          : index;
+      const landmarkId = landmark.id !== undefined ? landmark.id : i;
 
-      // 필터 가져오기
-      const { xFilter, yFilter, zFilter } = this.getOrCreateFilters(id);
+      // 이전 위치 가져오기 (없으면 현재 위치)
+      const prevLandmark = this.prevLandmarks[landmarkId] || landmark;
 
-      // 이전 값 가져오기 (없으면 현재 값)
-      const prevLandmark = this.prevLandmarks.get(id) || landmark;
+      // 데드존 적용
+      const stabilized = { ...landmark } as T; // 원본 복사
 
-      // 데드존 적용 후 필터링
-      const filteredX = xFilter.filter(
-        this.applyDeadZone(landmark.x, prevLandmark.x, deadZone),
-        timestamp / 1000.0 // 초 단위로 변환
-      );
+      // x 좌표에 데드존 적용
+      stabilized.x = this.applyDeadZone(landmark.x, prevLandmark.x);
 
-      const filteredY = yFilter.filter(
-        this.applyDeadZone(landmark.y, prevLandmark.y, deadZone),
-        timestamp / 1000.0
-      );
+      // y 좌표에 데드존 적용
+      stabilized.y = this.applyDeadZone(landmark.y, prevLandmark.y);
 
-      // z 좌표가 있으면 필터링
-      let filteredZ = landmark.z;
-      if (typeof landmark.z === "number") {
-        const prevZ =
-          typeof prevLandmark.z === "number" ? prevLandmark.z : landmark.z;
-        filteredZ = zFilter.filter(
-          this.applyDeadZone(landmark.z, prevZ, deadZone),
-          timestamp / 1000.0
+      // z 좌표가 있으면 데드존 적용
+      if (landmark.z !== undefined) {
+        stabilized.z = this.applyDeadZone(
+          landmark.z,
+          prevLandmark.z !== undefined ? prevLandmark.z : landmark.z
         );
       }
 
-      // 가시성이 갑자기 변경되는 것 방지
-      let visibility = landmark.visibility;
+      // 가시성이 있으면 데드존 적용 (파이썬 코드에는 없지만 필요한 경우)
       if (
-        typeof visibility === "number" &&
-        typeof prevLandmark.visibility === "number"
+        landmark.visibility !== undefined &&
+        prevLandmark.visibility !== undefined
       ) {
-        // 가시성이 급격히 변경되는 것 방지 (스무딩)
-        if (Math.abs(visibility - prevLandmark.visibility) > 0.3) {
-          visibility = 0.7 * prevLandmark.visibility + 0.3 * visibility;
-        }
+        stabilized.visibility = this.applyDeadZone(
+          landmark.visibility,
+          prevLandmark.visibility
+        );
       }
 
-      // 안정화된 랜드마크
-      const stabilized = {
-        ...landmark,
-        x: filteredX,
-        y: filteredY,
-        z: filteredZ,
-        visibility: visibility,
-      } as T;
+      stabilizedLandmarks.push(stabilized);
 
-      // 다음 프레임을 위해 현재 랜드마크 저장
-      this.prevLandmarks.set(id, stabilized);
+      // 다음 프레임을 위해 현재 위치 저장
+      this.prevLandmarks[landmarkId] = stabilized;
+    }
 
-      return stabilized;
-    });
+    // 원래 데드존 값으로 복원
+    if (originalDeadZone !== undefined) {
+      this.deadZone = originalDeadZone;
+    }
+
+    return stabilizedLandmarks;
   }
 
   /**
    * 서버에서 처리된 랜드마크 안정화
    */
   stabilizeProcessedLandmarks(
-    landmarks: TransformedLandmark[],
-    timestamp: number = performance.now(),
-    deadZone: number = 0.002
-  ): TransformedLandmark[] {
-    return this.stabilizeMediaPipeLandmarks(landmarks, timestamp, deadZone);
+    landmarks: Landmark[],
+    deadZone?: number
+  ): Landmark[] {
+    // MediaPipe 랜드마크 안정화와 동일한 로직을 사용
+    return this.stabilizeMediaPipeLandmarks(landmarks, deadZone);
   }
 
   /**
-   * 필터 상태 초기화
+   * 데드존 값 업데이트
+   */
+  setDeadZone(deadZone: number): void {
+    this.deadZone = deadZone;
+  }
+
+  /**
+   * 이전 위치 기록 초기화
    */
   reset(): void {
-    this.xFilters.forEach((filter) => filter.reset());
-    this.yFilters.forEach((filter) => filter.reset());
-    this.zFilters.forEach((filter) => filter.reset());
-    this.prevLandmarks.clear();
+    this.prevLandmarks = {};
   }
-}
-
-// 유연한 타입 적용을 위한 인터페이스
-interface MediaPipeStruct {
-  x: number;
-  y: number;
-  z: number;
-  visibility?: number;
-  id?: number;
-  [key: string]: any;
 }
 
 // 전역 인스턴스 생성
 // 실시간 랜드마크용 안정화기
-export const mediaPipeLandmarkStabilizer = new LandmarkStabilizer(0.001, 0.1);
+export const mediaPipeLandmarkStabilizer = new LandmarkStabilizer(0.02);
 
 // 처리된 랜드마크용 안정화기 (약간 다른 파라미터)
-export const processedLandmarkStabilizer = new LandmarkStabilizer(0.001, 0.05);
+export const processedLandmarkStabilizer = new LandmarkStabilizer(0.02);

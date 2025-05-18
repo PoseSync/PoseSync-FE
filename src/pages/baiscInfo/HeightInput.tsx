@@ -1,11 +1,11 @@
-import Badge from '../../components/contents/Badge';
-import Keyboard from '../../components/resource/Keyboard';
-import styled from 'styled-components';
-import { useState } from 'react';
-import { TertiaryButton } from '../../components/buttons/TertiaryButton';
-import { PrimaryButton } from '../../components/buttons/PrimaryButton';
-import { useNavigate } from 'react-router-dom';
-import { useUserStore } from '../../store/useUserStore';
+import Badge from "../../components/contents/Badge";
+import Keyboard from "../../components/resource/Keyboard";
+import styled from "styled-components";
+import { useState } from "react";
+import { TertiaryButton } from "../../components/buttons/TertiaryButton";
+import { PrimaryButton } from "../../components/buttons/PrimaryButton";
+import { useNavigate } from "react-router-dom";
+import { useUserStore } from "../../store/useUserStore";
 
 const FullScreen = styled.div`
   width: 3840px;
@@ -50,7 +50,7 @@ const RightTopContainer = styled.div`
 const PhoneLabelContainer = styled.div`
   width: 1470px;
   height: 100px;
-  font-family: 'Pretendard Variable';
+  font-family: "Pretendard Variable";
   font-weight: 600;
   font-size: 80px;
   line-height: 100px;
@@ -63,7 +63,7 @@ const PhoneLabelContainer = styled.div`
 const InnerContentContainer = styled.div`
   width: 1146px;
   height: 1455.3px;
-  background: transparent; 
+  background: transparent;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -86,7 +86,7 @@ const TopInfoContentContainer = styled.div`
 `;
 
 const Title = styled.div`
-  font-family: 'Pretendard Variable';
+  font-family: "Pretendard Variable";
   font-weight: 600;
   font-size: 80px;
   line-height: 100px;
@@ -95,12 +95,12 @@ const Title = styled.div`
 `;
 
 const SubTitle = styled.div`
-  font-family: 'Pretendard Variable';
+  font-family: "Pretendard Variable";
   font-weight: 500;
   font-size: 48px;
   line-height: 64px;
   letter-spacing: -0.48px;
-  color: var(--gray-300, #A8B0BD);
+  color: var(--gray-300, #a8b0bd);
   background: transparent;
 `;
 
@@ -125,7 +125,7 @@ const HeightInputRow = styled.div`
   border-radius: var(--radius-m);
   padding: 0 var(--padding-m);
   font-size: 92px;
-  font-family: 'Pretendard Variable';
+  font-family: "Pretendard Variable";
   font-weight: 700;
   color: var(--white);
   justify-content: center;
@@ -143,34 +143,34 @@ const HeightValue = styled.div`
 
 const CmLabel = styled.span`
   font-size: 92px;
-  font-family: 'Pretendard Variable';
+  font-family: "Pretendard Variable";
   font-weight: 700;
   color: var(--white);
 `;
 
 const HeightInput = () => {
-  const [height, setHeight] = useState('');
+  const [height, setHeight] = useState("");
   const navigate = useNavigate();
   const setUserHeight = useUserStore((state) => state.setHeight);
 
   // 키패드 입력 처리 함수
   const handleKeyboardInput = (key: string) => {
-    if (key === 'backspace') {
-      setHeight(prev => prev.slice(0, -1));
+    if (key === "backspace") {
+      setHeight((prev) => prev.slice(0, -1));
     } else if (/^[0-9]$/.test(key)) {
       if (height.length >= 3) return;
-      setHeight(prev => prev + key);
+      setHeight((prev) => prev + key);
     }
   };
 
   // 키 입력이 2자리 이상이면 완료로 간주
   const isHeightComplete = height.length >= 2;
 
-  // 전역 키 상태 입력, 임시로 경로 설정했음 추후에 수정해야함.
+  // 전역 키 상태 입력
   const handleNext = () => {
     if (isHeightComplete) {
       setUserHeight(height);
-      navigate('/measurement-results');
+      navigate("/measurement"); // 수정된 부분: '/measurement-results'에서 '/measurement'로 변경
     }
   };
 
@@ -183,9 +183,7 @@ const HeightInput = () => {
               <Badge>02</Badge>
               <Title>키를 입력해주세요.</Title>
             </TopInfoContentContainer>
-            <SubTitle>
-             Ai 체형측정을 위한 기본정보를 입력해주세요.
-            </SubTitle>
+            <SubTitle>Ai 체형측정을 위한 기본정보를 입력해주세요.</SubTitle>
           </TopInfoContainer>
           <Keyboard onInput={handleKeyboardInput} />
         </InnerContentContainer>
@@ -201,7 +199,13 @@ const HeightInput = () => {
           </HeightInputRow>
         </RightTopContainer>
         <ButtonRowContainer>
-          <TertiaryButton size="xl" fontSize="48px" onClick={() => navigate('/info')}>이전으로</TertiaryButton>
+          <TertiaryButton
+            size="xl"
+            fontSize="48px"
+            onClick={() => navigate("/info")}
+          >
+            이전으로
+          </TertiaryButton>
           <PrimaryButton
             size="xl"
             fontSize="48px"
