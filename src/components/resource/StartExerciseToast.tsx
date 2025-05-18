@@ -18,7 +18,8 @@ const TextContainer = styled.div`
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 62px;
+  font-family: 'Pretendard Variable', sans-serif;
+  font-size: 68px;
   font-weight: 700;
   color: var(--gray-900);
 `;
