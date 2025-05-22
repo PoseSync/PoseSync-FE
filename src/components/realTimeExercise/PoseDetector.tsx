@@ -99,7 +99,7 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
     []
   );
 
-  // 전신 가시성 체크 함수
+  // 전신 가시성 체크 함수 - 타입 오류 수정: 의존성 배열에서 함수들 제거
   const checkFullBodyVisibility = useCallback((landmarks: Landmark[]) => {
     // 필수 랜드마크 ID (하체 관절)
     const requiredJoints = [
@@ -144,8 +144,17 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
   useEffect(() => {
     // rawLandmarks가 있을 때만 전신 가시성 확인
     if (rawLandmarks.length > 0) {
+      // 타입 오류 수정: rawLandmarks를 Landmark[] 타입으로 변환
+      const landmarksForCheck: Landmark[] = rawLandmarks.map((lm) => ({
+        id: lm.id,
+        x: lm.x,
+        y: lm.y,
+        z: lm.z,
+        visibility: lm.visibility,
+      }));
+
       // 전신 가시성 확인
-      const isFullBodyVisible = checkFullBodyVisibility(rawLandmarks);
+      const isFullBodyVisible = checkFullBodyVisibility(landmarksForCheck);
 
       if (!isFullBodyVisible) {
         setWarningMessage(
@@ -210,8 +219,17 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
       // requestId 생성
       const requestId = `req_${now}_${Math.floor(Math.random() * 10000)}`;
 
+      // 타입 오류 수정: rawLandmarks를 Landmark[] 타입으로 변환하여 전송
+      const landmarksToSend: Landmark[] = rawLandmarks.map((lm) => ({
+        id: lm.id,
+        x: lm.x,
+        y: lm.y,
+        z: lm.z,
+        visibility: lm.visibility,
+      }));
+
       // 랜드마크 전송
-      sendPose(rawLandmarks, requestId);
+      sendPose(landmarksToSend, requestId);
       setLastFrameTime(now);
     }
   }, [isTransmitting, isConnected, rawLandmarks, sendPose, lastFrameTime]);
@@ -278,7 +296,13 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
             processedResult.visualizationLandmarks.length > 0 && (
               <PoseDifferenceVisualizer
                 videoElement={videoElement}
-                userLandmarks={rawLandmarks}
+                userLandmarks={rawLandmarks.map((lm) => ({
+                  id: lm.id,
+                  x: lm.x,
+                  y: lm.y,
+                  z: lm.z,
+                  visibility: lm.visibility,
+                }))}
                 guidelineLandmarks={processedResult.visualizationLandmarks}
                 width={videoWidth}
                 height={videoHeight}

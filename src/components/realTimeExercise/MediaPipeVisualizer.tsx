@@ -88,8 +88,17 @@ const MediaPipeVisualizer: React.FC<MediaPipeVisualizerProps> = ({
         stabilizedLandmarks = landmarks.map((lm) => ({ ...lm })); // 복사본 생성
       } else {
         // 사용자 랜드마크는 안정화 적용
+        // 타입 호환성을 위해 명시적 타입 캐스팅
         stabilizedLandmarks =
-          mediaPipeLandmarkStabilizer.stabilizeMediaPipeLandmarks(landmarks);
+          mediaPipeLandmarkStabilizer.stabilizeMediaPipeLandmarks(
+            landmarks.map((lm, index) => ({
+              id: index,
+              x: lm.x,
+              y: lm.y,
+              z: lm.z || 0,
+              visibility: lm.visibility || 1.0,
+            }))
+          );
       }
 
       // MediaPipe 랜드마크를 NormalizedLandmarkList 형식으로 변환
