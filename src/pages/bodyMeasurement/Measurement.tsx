@@ -351,7 +351,7 @@ const Measurement: React.FC = () => {
     ]
   );
 
-  // 📌 30프레임을 서버로 전송하는 함수
+  // 📌 30프레임을 서버로 전송하는 함수 - 전화번호 숫자만 전송하도록 수정
   const sendFramesToServer = useCallback(
     (frames: Landmark[][]) => {
       if (!socketRef.current) {
@@ -362,9 +362,12 @@ const Measurement: React.FC = () => {
       setAnalyzing(true);
       setBodyDetectionState("analyzing");
 
+      // 🔥 전화번호에서 숫자만 추출
+      const numericPhoneNumber = phoneNumber.replace(/[^0-9]/g, "");
+
       console.log("프레임 체형 분석 데이터 전송:", {
         frameCount: frames.length,
-        phoneNumber: phoneNumber,
+        phoneNumber: numericPhoneNumber, // "01012345678" 형식으로 출력
         height: parseInt(height, 10),
       });
 
@@ -380,10 +383,10 @@ const Measurement: React.FC = () => {
         alert("측정 시간이 초과되었습니다. 다시 시도해주세요.");
       }, 45000);
 
-      // 서버에 프레임 체형 분석 요청
+      // 🔥 서버에 프레임 체형 분석 요청 - 숫자만 포함된 전화번호 전송
       socketRef.current.emit("analyze_body", {
         landmarks: frames, // 프레임 배열
-        phoneNumber: phoneNumber,
+        phoneNumber: numericPhoneNumber, // 숫자만 포함된 전화번호
         height: parseInt(height, 10) || 170,
       });
     },
@@ -481,7 +484,7 @@ const Measurement: React.FC = () => {
     }
   };
 
-  // 카메라 초기화 (기존과 동일)
+  // 카메라 초기화
   useEffect(() => {
     let stream: MediaStream | null = null;
 

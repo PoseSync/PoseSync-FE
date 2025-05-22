@@ -14,6 +14,8 @@ interface PoseDetectorProps {
   onCountUpdate: (count: number) => void;
   onFeedback: (message: string) => void;
   isTransmitting: boolean;
+  currentCount?: number; // 현재 운동 횟수 (추가)
+  shouldDisconnect?: boolean; // 연결 해제 신호 (추가)
 }
 
 const PoseDetector: React.FC<PoseDetectorProps> = ({
@@ -22,6 +24,8 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
   onCountUpdate,
   onFeedback,
   isTransmitting,
+  currentCount = 0, // 기본값 0
+  shouldDisconnect = false, // 기본값 false
 }) => {
   // 기본 상태
   const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(
@@ -30,6 +34,7 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
   const [lastFrameTime, setLastFrameTime] = useState<number>(0);
   const [similarity, setSimilarity] = useState<number>(0);
   const [warningMessage, setWarningMessage] = useState<string>("");
+  const [hasDisconnected, setHasDisconnected] = useState<boolean>(false); // 연결 해제 상태 추적
 
   // 플래그 상수 (상태 변수가 아닌 상수로 정의하여 불필요한 경고 제거)
   const showFace = false;
@@ -63,12 +68,56 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
   );
 
   // Socket.io 훅 사용
-  const { isConnected, isConnecting, connect, sendPose, processedResult } =
-    useSocket({
-      phoneNumber,
-      exerciseType,
-      autoConnect: false,
-    });
+  const {
+    isConnected,
+    isConnecting,
+    connect,
+    disconnectClient, // 추가된 함수
+    sendPose,
+    processedResult,
+  } = useSocket({
+    phoneNumber,
+    exerciseType,
+    autoConnect: false,
+  });
+
+  // 연결 해제 처리 - shouldDisconnect 상태 변화 감지
+  useEffect(() => {
+    // shouldDisconnect가 true이고, 이전에 연결이 되어있었으며, 아직 연결 해제하지 않았을 때
+    if (shouldDisconnect && isConnected && !hasDisconnected) {
+      console.log("🔴 PoseDetector에서 disconnect_client 패킷 전송");
+
+      // disconnect_client 패킷을 서버로 전송 (현재 운동 횟수와 함께)
+      if (disconnectClient) {
+        // 소켓에 현재 운동 횟수 정보와 함께 연결 해제 요청
+        disconnectClient();
+
+        // 연결 해제 완료 상태로 설정
+        setHasDisconnected(true);
+
+        // 피드백 전송
+        onFeedback("운동 데이터가 서버에 저장되었습니다.");
+
+        console.log(
+          "✅ disconnect_client 패킷 전송 완료, 현재 운동 횟수:",
+          currentCount
+        );
+      }
+    }
+
+    // 전송이 다시 시작되면 연결 해제 상태 초기화
+    if (!shouldDisconnect && hasDisconnected) {
+      setHasDisconnected(false);
+      console.log("🟢 연결 해제 상태 초기화");
+    }
+  }, [
+    shouldDisconnect,
+    isConnected,
+    hasDisconnected,
+    disconnectClient,
+    currentCount,
+    onFeedback,
+  ]);
 
   // 서버에서 처리된 랜드마크를 MediaPipe 시각화 형식으로 변환
   const convertToMediaPipeFormat = useCallback(
@@ -201,16 +250,33 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
       videoElement &&
       rawLandmarks.length > 0 &&
       !isConnected &&
-      !isConnecting
+      !isConnecting &&
+      isTransmitting && // 전송 중일 때만 연결 시도
+      !hasDisconnected // 연결 해제되지 않았을 때만
     ) {
-      // 랜드마크가 감지되면 자동 연결 시도
+      // 랜드마크가 감지되고 전송 중일 때만 자동 연결 시도
+      console.log("🟢 자동 소켓 연결 시도");
       connect();
     }
-  }, [videoElement, rawLandmarks.length, isConnected, isConnecting, connect]);
+  }, [
+    videoElement,
+    rawLandmarks.length,
+    isConnected,
+    isConnecting,
+    connect,
+    isTransmitting,
+    hasDisconnected,
+  ]);
 
   // 데이터 전송 로직
   useEffect(() => {
-    if (!isTransmitting || !isConnected || rawLandmarks.length === 0) return;
+    if (
+      !isTransmitting ||
+      !isConnected ||
+      rawLandmarks.length === 0 ||
+      hasDisconnected
+    )
+      return;
 
     const now = performance.now();
 
@@ -232,7 +298,14 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
       sendPose(landmarksToSend, requestId);
       setLastFrameTime(now);
     }
-  }, [isTransmitting, isConnected, rawLandmarks, sendPose, lastFrameTime]);
+  }, [
+    isTransmitting,
+    isConnected,
+    rawLandmarks,
+    sendPose,
+    lastFrameTime,
+    hasDisconnected,
+  ]);
 
   // 서버 처리 결과 MediaPipe 형식 변환
   const processedMediaPipeResults =
@@ -246,6 +319,13 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
       {warningMessage && (
         <div className="absolute top-4 left-0 right-0 mx-auto w-max bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg z-10">
           <p className="flex items-center text-sm">⚠️ {warningMessage}</p>
+        </div>
+      )}
+
+      {/* 연결 해제 상태 표시 */}
+      {hasDisconnected && (
+        <div className="absolute top-16 left-0 right-0 mx-auto w-max bg-yellow-500 text-black px-4 py-2 rounded-lg shadow-lg z-10">
+          <p className="flex items-center text-sm">✅ 운동 데이터 저장 완료</p>
         </div>
       )}
 
@@ -273,27 +353,31 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
             />
           )}
 
-          {/* 서버 처리된 랜드마크 시각화 (파란색) */}
-          {videoElement && showGuideline && processedMediaPipeResults && (
-            <MediaPipeVisualizer
-              videoElement={videoElement}
-              results={processedMediaPipeResults}
-              width={videoWidth}
-              height={videoHeight}
-              showFace={showFace}
-              color="#60a5fa" // 밝은 파란색
-              lineWidth={3}
-              pointSize={2}
-              isGuideline={true}
-            />
-          )}
+          {/* 서버 처리된 랜드마크 시각화 (파란색) - 연결 해제되지 않았을 때만 표시 */}
+          {videoElement &&
+            showGuideline &&
+            processedMediaPipeResults &&
+            !hasDisconnected && (
+              <MediaPipeVisualizer
+                videoElement={videoElement}
+                results={processedMediaPipeResults}
+                width={videoWidth}
+                height={videoHeight}
+                showFace={showFace}
+                color="#60a5fa" // 밝은 파란색
+                lineWidth={3}
+                pointSize={2}
+                isGuideline={true}
+              />
+            )}
 
-          {/* 두 랜드마크 간의 차이 시각화 */}
+          {/* 두 랜드마크 간의 차이 시각화 - 연결 해제되지 않았을 때만 표시 */}
           {videoElement &&
             showDifferences &&
             rawLandmarks.length > 0 &&
             processedResult?.visualizationLandmarks &&
-            processedResult.visualizationLandmarks.length > 0 && (
+            processedResult.visualizationLandmarks.length > 0 &&
+            !hasDisconnected && (
               <PoseDifferenceVisualizer
                 videoElement={videoElement}
                 userLandmarks={rawLandmarks.map((lm) => ({
@@ -338,13 +422,15 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
           </div>
         )}
 
-        {/* 화면 우측 상단에 정확도 표시 */}
-        <div className="absolute top-3 right-3 bg-black bg-opacity-70 rounded-lg p-3 text-white">
-          <div className="flex items-center">
-            <span className="mr-2">정확도:</span>
-            <PoseMatchIndicator similarity={similarity} />
+        {/* 화면 우측 상단에 정확도 표시 - 연결 해제되지 않았을 때만 표시 */}
+        {!hasDisconnected && (
+          <div className="absolute top-3 right-3 bg-black bg-opacity-70 rounded-lg p-3 text-white">
+            <div className="flex items-center">
+              <span className="mr-2">정확도:</span>
+              <PoseMatchIndicator similarity={similarity} />
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

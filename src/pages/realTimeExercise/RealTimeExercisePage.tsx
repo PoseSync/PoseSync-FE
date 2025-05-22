@@ -361,15 +361,46 @@ const RealTimeExercisePage: React.FC = () => {
     [sets, currentSet, handleFeedback, navigate]
   );
 
-  // 전송 상태 토글
+  // 전송 상태 토글 (수정된 부분)
   const toggleTransmission = () => {
+    const wasTransmitting = isTransmitting;
+
     setIsTransmitting((prev) => !prev);
 
-    // 전송 시작 시 피드백 및 정확도 초기화
-    if (!isTransmitting) {
-      setAccuracy(75); // 기본 정확도로 리셋
-      setFeedbacks([]); // 피드백 메시지 초기화
+    if (wasTransmitting) {
+      // 전송을 중단하는 경우 - disconnect_client 패킷 전송
+      console.log("🔴 전송 중단 - disconnect_client 패킷 전송");
+      handleDisconnectClient();
+
+      // 피드백 및 정확도 초기화
+      setFeedbacks([]);
+      setAccuracy(75);
+
+      // 피드백 메시지 추가
+      handleFeedback("운동이 중단되었습니다. 결과가 저장됩니다.");
+    } else {
+      // 전송을 시작하는 경우
+      console.log("🟢 전송 시작");
+
+      // 피드백 및 정확도 초기화
+      setAccuracy(75);
+      setFeedbacks([]);
+
+      // 피드백 메시지 추가
+      handleFeedback("운동 전송을 시작합니다. 자세를 취해주세요.");
     }
+  };
+
+  // disconnect_client 패킷 전송 함수
+  const handleDisconnectClient = () => {
+    // PoseDetector 컴포넌트의 disconnect 함수를 호출하기 위해
+    // ref를 통해 호출하거나, 상태를 통해 신호를 보냄
+    // 여기서는 PoseDetector에서 isTransmitting이 false가 되는 것을 감지하여 처리하도록 함
+
+    console.log("운동 중단 처리 중...");
+
+    // 현재 운동 횟수와 함께 disconnect_client 정보를 PoseDetector로 전달
+    // 이는 PoseDetector 컴포넌트에서 처리될 예정
   };
 
   // 현재 세트 정보
@@ -474,6 +505,8 @@ const RealTimeExercisePage: React.FC = () => {
                 onCountUpdate={handleCountUpdate}
                 onFeedback={handleFeedback}
                 isTransmitting={isTransmitting}
+                currentCount={count} // 현재 운동 횟수 전달
+                shouldDisconnect={!isTransmitting} // 전송 중단 신호 전달
               />
             </VideoContainer>
 
@@ -517,7 +550,9 @@ const RealTimeExercisePage: React.FC = () => {
                     feedback.includes("자세가 크게 벗어났습니다") ||
                     feedback.includes("세트 완료") ||
                     feedback.includes("수고하셨습니다") ||
-                    feedback.includes("매우 정확합니다");
+                    feedback.includes("매우 정확합니다") ||
+                    feedback.includes("중단되었습니다") ||
+                    feedback.includes("시작합니다");
 
                   return (
                     <FeedbackMessage key={index} isImportant={isImportant}>

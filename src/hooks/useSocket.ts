@@ -58,6 +58,7 @@ export const useSocket = (options: UseSocketOptions) => {
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSentRef = useRef<number>(0);
   const latencyRecordsRef = useRef<Record<string, LatencyRecord>>({});
+  const currentCountRef = useRef<number>(0); // 현재 운동 횟수 추적
 
   // 레이턴시 통계 계산 함수
   const calculateLatencyStats = useCallback(() => {
@@ -162,6 +163,7 @@ export const useSocket = (options: UseSocketOptions) => {
         data: ProcessedResult & {
           requestId?: string;
           serverProcessingTime?: number;
+          exerciseCount?: number; // 운동 횟수 추가
         }
       ) => {
         if (!mountedRef.current) return;
@@ -203,9 +205,23 @@ export const useSocket = (options: UseSocketOptions) => {
           }
         }
 
+        // 운동 횟수 업데이트
+        if (data.exerciseCount !== undefined) {
+          currentCountRef.current = data.exerciseCount;
+        }
+
         setProcessedResult(data);
       }
     );
+
+    // next 이벤트 처리 (서버에서 운동 완료 후 전송)
+    newSocket.on("next", (data) => {
+      if (!mountedRef.current) return;
+      console.log("🎯 서버에서 next 이벤트 수신:", data);
+
+      // 다음 세트나 운동 완료 처리
+      // 필요에 따라 상위 컴포넌트에 알림
+    });
 
     setSocket(newSocket);
 
@@ -336,12 +352,28 @@ export const useSocket = (options: UseSocketOptions) => {
     socket.disconnect();
   }, [socket, phoneNumber]);
 
-  // 클라이언트 연결 해제 함수
+  // 클라이언트 연결 해제 함수 (수정된 부분)
   const disconnectClient = useCallback(() => {
-    if (!socket) return;
+    if (!socket) {
+      console.error("소켓이 초기화되지 않음");
+      return;
+    }
 
-    // 서버에 패킷만 날린다
-    socket.emit("disconnect_client", { phoneNumber });
+    if (!socket.connected) {
+      console.log("소켓이 연결되어 있지 않음");
+      return;
+    }
+
+    console.log("🔴 disconnect_client 패킷 전송 중...");
+    console.log("현재 운동 횟수:", currentCountRef.current);
+
+    // 서버에 disconnect_client 패킷 전송 (현재 운동 횟수와 함께)
+    socket.emit("disconnect_client", {
+      phoneNumber,
+      count: currentCountRef.current,
+    });
+
+    console.log("✅ disconnect_client 패킷 전송 완료");
 
     // 실제 연결을 끊는다
     socket.disconnect();
