@@ -3,6 +3,7 @@ import { PrimaryButton } from "../../components/buttons/PrimaryButton";
 import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
 import { useUserStore } from "../../store/useUserStore";
+import io, { Socket } from "socket.io-client";
 
 // 타입 선언
 interface Landmark {
@@ -67,7 +68,7 @@ declare global {
   }
 }
 
-// 컴포넌트 스타일
+// 컴포넌트 스타일들
 const FullScreen = styled.div`
   width: 3840px;
   height: 2160px;
@@ -137,6 +138,45 @@ const CountdownText = styled.div`
   text-shadow: 0 0 10px rgba(201, 243, 83, 0.7);
 `;
 
+// 📌 프레임 수집 진행률 표시
+const CollectionOverlay = styled.div`
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 8;
+`;
+
+const CollectionProgress = styled.div`
+  font-family: "Pretendard Variable", sans-serif;
+  font-weight: 600;
+  font-size: 60px;
+  color: var(--white);
+  margin-bottom: 20px;
+`;
+
+const ProgressBar = styled.div`
+  width: 400px;
+  height: 20px;
+  background: var(--gray-700);
+  border-radius: 10px;
+  overflow: hidden;
+  margin-bottom: 20px;
+`;
+
+const ProgressFill = styled.div<{ progress: number }>`
+  width: ${(props) => props.progress}%;
+  height: 100%;
+  background: var(--yellow-400);
+  transition: width 0.3s ease;
+`;
+
 const BodyGuideText = styled.div`
   position: absolute;
   top: 20px;
@@ -188,19 +228,6 @@ const ButtonBox = styled.div`
   margin-top: 130px;
 `;
 
-const FrameCounterOverlay = styled.div`
-  position: absolute;
-  top: 60px;
-  right: 10px;
-  background: rgba(0, 0, 0, 0.7);
-  color: white;
-  padding: 10px 15px;
-  border-radius: 5px;
-  font-size: 16px;
-  font-family: monospace;
-  z-index: 50;
-`;
-
 const Measurement: React.FC = () => {
   const navigate = useNavigate();
   const height = useUserStore((state) => state.height);
@@ -215,12 +242,13 @@ const Measurement: React.FC = () => {
     useState<string>("waiting");
   const [visibleLandmarksCount, setVisibleLandmarksCount] = useState<number>(0);
 
-  // 프레임 수집 관련 상태
+  // 📌 프레임 수집 관련 상태
   const [frameBuffer, setFrameBuffer] = useState<Landmark[][]>([]);
   const [isCollectingFrames, setIsCollectingFrames] = useState<boolean>(false);
-  const [collectedFrameCount, setCollectedFrameCount] = useState<number>(0);
+  const [collectionProgress, setCollectionProgress] = useState<number>(0);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const socketRef = useRef<Socket | null>(null);
   const poseRef = useRef<Pose | null>(null);
   const animationRef = useRef<number | null>(null);
   const countdownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -228,92 +256,11 @@ const Measurement: React.FC = () => {
     typeof setTimeout
   > | null>(null);
   const analysisTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const frameCollectionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
-    null
-  );
 
-  // 체형 분석 수행
-  const performBodyAnalysis = useCallback(
-    async (landmarksData: Landmark[][]): Promise<void> => {
-      console.log("체형 분석 시작:", {
-        frameCount: landmarksData.length,
-        phoneNumber: phoneNumber,
-        height: parseInt(height, 10),
-      });
+  // 📌 프레임 수집 설정
+  const REQUIRED_FRAMES = 50;
 
-      setBodyDetectionState("analyzing");
-
-      try {
-        // HTTP API 호출
-        const response = await fetch(
-          "http://localhost:5001/api/body-analysis/analyze",
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              landmarks: landmarksData,
-              phoneNumber: phoneNumber,
-            }),
-          }
-        );
-
-        if (!response.ok) {
-          throw new Error(`HTTP 오류: ${response.status}`);
-        }
-
-        const data: AnalysisResponse = await response.json();
-
-        console.log("체형 분석 결과:", data);
-
-        if (data.success) {
-          // 분석 완료 후 결과 페이지로 이동
-          setTimeout(() => {
-            navigate("/measurement-results", {
-              state: { analysisResult: data.result },
-            });
-          }, 2000);
-        } else {
-          throw new Error("체형 분석 실패");
-        }
-      } catch (error) {
-        console.error("체형 분석 중 오류:", error);
-        resetToInitialState();
-        alert("체형 분석에 실패했습니다. 다시 시도해주세요.");
-      }
-    },
-    [phoneNumber, height, navigate]
-  );
-
-  // 카운트다운 시작
-  const startCountdown = useCallback((): void => {
-    setCountdown(10); // 10초 카운트다운 시작
-
-    // 기존 타이머 제거
-    if (countdownTimerRef.current) {
-      clearInterval(countdownTimerRef.current);
-    }
-
-    // 카운트다운 타이머 시작
-    countdownTimerRef.current = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev === null || prev <= 1) {
-          // 카운트다운 종료
-          if (countdownTimerRef.current) {
-            clearInterval(countdownTimerRef.current);
-            countdownTimerRef.current = null;
-          }
-          // 자동으로 측정 시작
-          startFrameCollection();
-          return null;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-  }, []);
-
-  // Pose 결과 처리 콜백
+  // Pose 결과 처리 콜백 (프레임 수집 로직 추가)
   const handlePoseResults = useCallback(
     (results: PoseResults): void => {
       if (!results || !results.poseLandmarks) return;
@@ -332,61 +279,67 @@ const Measurement: React.FC = () => {
       // 랜드마크 상태 업데이트
       setLandmarks(formattedLandmarks);
 
+      // 📌 프레임 수집 중일 때 버퍼에 추가
+      if (isCollectingFrames && frameBuffer.length < REQUIRED_FRAMES) {
+        setFrameBuffer((prev) => {
+          const newBuffer = [...prev, formattedLandmarks];
+          const progress = (newBuffer.length / REQUIRED_FRAMES) * 100;
+          setCollectionProgress(progress);
+
+          // 프레임 수집 완료
+          if (newBuffer.length === REQUIRED_FRAMES) {
+            console.log(`✅ ${REQUIRED_FRAMES}프레임 수집 완료! 분석 시작...`);
+            sendFramesToServer(newBuffer);
+            setIsCollectingFrames(false);
+            setCollectionProgress(0);
+            return [];
+          }
+
+          return newBuffer;
+        });
+        return; // 수집 중일 때는 다른 로직 실행 안함
+      }
+
       // 가시성 높은 랜드마크 개수 계산
       const visibleCount = formattedLandmarks.filter(
         (lm) => lm.visibility !== undefined && lm.visibility > 0.5
       ).length;
       setVisibleLandmarksCount(visibleCount);
 
-      // 프레임 수집 중이면 프레임 버퍼에 추가
-      if (isCollectingFrames && frameBuffer.length < 10) {
-        setFrameBuffer((prev) => {
-          const newBuffer = [...prev, formattedLandmarks];
-          setCollectedFrameCount(newBuffer.length);
+      // 콘솔에 감지된 랜드마크 개수 표시
+      console.log(`감지된 랜드마크: ${visibleCount}/33 (가시성 > 0.5)`);
 
-          // 10프레임 수집 완료
-          if (newBuffer.length >= 10) {
-            setIsCollectingFrames(false);
-            // 수집 완료 후 분석 시작
-            performBodyAnalysis(newBuffer);
-          }
+      // 전신 감지 여부 확인
+      const bodyVisible = isFullBodyVisible(formattedLandmarks);
 
-          return newBuffer;
-        });
-      }
+      // 전신 감지 상태 업데이트
+      if (
+        bodyVisible &&
+        !fullBodyDetected &&
+        !analyzing &&
+        countdown === null &&
+        !isCollectingFrames
+      ) {
+        setBodyDetectionState("detected");
 
-      // 전신 감지 여부 확인 (수집 중이 아닐 때만)
-      if (!isCollectingFrames) {
-        const bodyVisible = isFullBodyVisible(formattedLandmarks);
-
-        // 전신 감지 상태 업데이트
-        if (
-          bodyVisible &&
-          !fullBodyDetected &&
-          !analyzing &&
-          countdown === null
-        ) {
-          setBodyDetectionState("detected");
-
-          // 전신이 감지되면 3초 유지되는지 확인 후 카운트다운 시작
-          if (fullBodyDetectionTimerRef.current) {
-            clearTimeout(fullBodyDetectionTimerRef.current);
-          }
-
-          fullBodyDetectionTimerRef.current = setTimeout(() => {
-            setFullBodyDetected(true);
-            setBodyDetectionState("stable");
-            startCountdown();
-          }, 3000);
-        } else if (!bodyVisible && !analyzing) {
-          // 전신이 감지되지 않으면 타이머 초기화
-          setBodyDetectionState("waiting");
-          if (fullBodyDetectionTimerRef.current) {
-            clearTimeout(fullBodyDetectionTimerRef.current);
-            fullBodyDetectionTimerRef.current = null;
-          }
-          setFullBodyDetected(false);
+        // 전신이 감지되면 3초 유지되는지 확인 후 카운트다운 시작
+        if (fullBodyDetectionTimerRef.current) {
+          clearTimeout(fullBodyDetectionTimerRef.current);
         }
+
+        fullBodyDetectionTimerRef.current = setTimeout(() => {
+          setFullBodyDetected(true);
+          setBodyDetectionState("stable");
+          startCountdown();
+        }, 3000);
+      } else if (!bodyVisible && !analyzing && !isCollectingFrames) {
+        // 전신이 감지되지 않으면 타이머 초기화
+        setBodyDetectionState("waiting");
+        if (fullBodyDetectionTimerRef.current) {
+          clearTimeout(fullBodyDetectionTimerRef.current);
+          fullBodyDetectionTimerRef.current = null;
+        }
+        setFullBodyDetected(false);
       }
     },
     [
@@ -394,17 +347,53 @@ const Measurement: React.FC = () => {
       analyzing,
       countdown,
       isCollectingFrames,
-      frameBuffer,
-      performBodyAnalysis,
-      startCountdown,
+      frameBuffer.length,
     ]
+  );
+
+  // 📌 30프레임을 서버로 전송하는 함수
+  const sendFramesToServer = useCallback(
+    (frames: Landmark[][]) => {
+      if (!socketRef.current) {
+        console.error("소켓이 연결되어 있지 않습니다.");
+        return;
+      }
+
+      setAnalyzing(true);
+      setBodyDetectionState("analyzing");
+
+      console.log("프레임 체형 분석 데이터 전송:", {
+        frameCount: frames.length,
+        phoneNumber: phoneNumber,
+        height: parseInt(height, 10),
+      });
+
+      // 기존 타임아웃 제거
+      if (analysisTimeoutRef.current) {
+        clearTimeout(analysisTimeoutRef.current);
+      }
+
+      // 45초 타임아웃 설정 (프레임 처리 시간 고려)
+      analysisTimeoutRef.current = setTimeout(() => {
+        console.log("측정 시간 초과 (45초)");
+        resetToInitialState();
+        alert("측정 시간이 초과되었습니다. 다시 시도해주세요.");
+      }, 45000);
+
+      // 서버에 프레임 체형 분석 요청
+      socketRef.current.emit("analyze_body", {
+        landmarks: frames, // 프레임 배열
+        phoneNumber: phoneNumber,
+        height: parseInt(height, 10) || 170,
+      });
+    },
+    [phoneNumber, height]
   );
 
   // 전신 포즈 감지 여부 확인
   const isFullBodyVisible = (landmarks: Landmark[]): boolean => {
     if (landmarks.length < 33) return false;
 
-    // 주요 관절 ID 목록
     const keyJoints = [
       11,
       12,
@@ -420,7 +409,6 @@ const Measurement: React.FC = () => {
       28, // 엉덩이, 무릎, 발목
     ];
 
-    // 모든 주요 관절의 가시성 확인
     return keyJoints.every((id) => {
       const landmark = landmarks.find((lm) => lm.id === id);
       return (
@@ -431,32 +419,38 @@ const Measurement: React.FC = () => {
     });
   };
 
-  // 프레임 수집 시작
-  const startFrameCollection = useCallback((): void => {
-    console.log("프레임 수집 시작");
-    setAnalyzing(true);
-    setIsCollectingFrames(true);
-    setFrameBuffer([]);
-    setCollectedFrameCount(0);
-    setBodyDetectionState("collecting");
+  // 카운트다운 시작
+  const startCountdown = (): void => {
+    setCountdown(10);
 
-    // 10초 타임아웃 설정 (프레임 수집 실패 방지)
-    if (frameCollectionTimerRef.current) {
-      clearTimeout(frameCollectionTimerRef.current);
+    if (countdownTimerRef.current) {
+      clearInterval(countdownTimerRef.current);
     }
 
-    frameCollectionTimerRef.current = setTimeout(() => {
-      setIsCollectingFrames((prev) => {
-        if (prev) {
-          console.log("프레임 수집 타임아웃");
-          resetToInitialState();
-          alert("프레임 수집에 실패했습니다. 다시 시도해주세요.");
-          return false;
+    countdownTimerRef.current = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev === null || prev <= 1) {
+          if (countdownTimerRef.current) {
+            clearInterval(countdownTimerRef.current);
+            countdownTimerRef.current = null;
+          }
+          // 📌 카운트다운 종료 후 프레임 수집 시작
+          startFrameCollection();
+          return null;
         }
-        return prev;
+        return prev - 1;
       });
-    }, 10000);
-  }, []);
+    }, 1000);
+  };
+
+  // 📌 프레임 수집 시작 함수
+  const startFrameCollection = (): void => {
+    console.log(`🎬 ${REQUIRED_FRAMES}프레임 수집 시작`);
+    setIsCollectingFrames(true);
+    setFrameBuffer([]);
+    setCollectionProgress(0);
+    setBodyDetectionState("collecting");
+  };
 
   // 초기 상태로 리셋
   const resetToInitialState = (): void => {
@@ -464,9 +458,11 @@ const Measurement: React.FC = () => {
     setCountdown(null);
     setFullBodyDetected(false);
     setBodyDetectionState("waiting");
+
+    // 📌 프레임 수집 관련 상태도 리셋
     setIsCollectingFrames(false);
     setFrameBuffer([]);
-    setCollectedFrameCount(0);
+    setCollectionProgress(0);
 
     // 모든 타이머 제거
     if (countdownTimerRef.current) {
@@ -483,29 +479,21 @@ const Measurement: React.FC = () => {
       clearTimeout(analysisTimeoutRef.current);
       analysisTimeoutRef.current = null;
     }
-
-    if (frameCollectionTimerRef.current) {
-      clearTimeout(frameCollectionTimerRef.current);
-      frameCollectionTimerRef.current = null;
-    }
   };
 
-  // 카메라 초기화
+  // 카메라 초기화 (기존과 동일)
   useEffect(() => {
     let stream: MediaStream | null = null;
 
     async function setupCamera(): Promise<void> {
       try {
-        // 카메라 접근 권한 요청
         stream = await navigator.mediaDevices.getUserMedia({
           video: { width: 1280, height: 720 },
           audio: false,
         });
 
-        // 비디오 엘리먼트에 스트림 설정
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
-          // 메타데이터 로드 시 재생 시작
           videoRef.current.onloadedmetadata = () => {
             if (videoRef.current) {
               videoRef.current
@@ -527,15 +515,12 @@ const Measurement: React.FC = () => {
 
     setupCamera();
 
-    // 컴포넌트 언마운트 시 정리
     return () => {
-      // 애니메이션 프레임 취소
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current);
         animationRef.current = null;
       }
 
-      // 타이머 정리
       if (countdownTimerRef.current) {
         clearInterval(countdownTimerRef.current);
         countdownTimerRef.current = null;
@@ -551,17 +536,10 @@ const Measurement: React.FC = () => {
         analysisTimeoutRef.current = null;
       }
 
-      if (frameCollectionTimerRef.current) {
-        clearTimeout(frameCollectionTimerRef.current);
-        frameCollectionTimerRef.current = null;
-      }
-
-      // 카메라 스트림 정리
       if (stream) {
         stream.getTracks().forEach((track) => track.stop());
       }
 
-      // Pose 모델 정리
       if (poseRef.current) {
         poseRef.current.close();
         poseRef.current = null;
@@ -578,30 +556,51 @@ const Measurement: React.FC = () => {
         await poseRef.current?.send({ image: videoRef.current });
       }
 
-      // 다음 프레임 처리 요청
       animationRef.current = requestAnimationFrame(sendFrame);
     };
 
-    // 프레임 전송 시작
     sendFrame();
   };
 
-  // Pose 모델 초기화
+  // 소켓 연결 및 Pose 모델 초기화
   useEffect(() => {
     if (!videoReady) return;
 
-    // MediaPipe Pose 모델 초기화
+    socketRef.current = io("http://localhost:5001");
+
+    socketRef.current.on("connect", () => {
+      console.log("소켓 서버에 연결되었습니다.");
+    });
+
+    socketRef.current.on("body_analysis_result", (data: AnalysisResponse) => {
+      console.log("체형 분석 결과:", data);
+
+      if (analysisTimeoutRef.current) {
+        clearTimeout(analysisTimeoutRef.current);
+        analysisTimeoutRef.current = null;
+      }
+
+      if (data.success) {
+        setTimeout(() => {
+          navigate("/measurement-results", {
+            state: { analysisResult: data.result },
+          });
+        }, 2000);
+      } else {
+        resetToInitialState();
+        alert("체형 분석에 실패했습니다. 다시 시도해주세요.");
+      }
+    });
+
     const initPose = async (): Promise<void> => {
       if (typeof window.Pose !== "undefined") {
         try {
-          // Pose 모델 인스턴스 생성
           poseRef.current = new window.Pose({
             locateFile: (file: string) => {
               return `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`;
             },
           });
 
-          // Pose 모델 옵션 설정
           poseRef.current.setOptions({
             modelComplexity: 1,
             smoothLandmarks: true,
@@ -611,10 +610,7 @@ const Measurement: React.FC = () => {
             minTrackingConfidence: 0.5,
           });
 
-          // 결과 콜백 등록
           poseRef.current.onResults(handlePoseResults);
-
-          // 카메라 프레임 전송 시작
           startCamera();
 
           console.log("MediaPipe Pose 모델 초기화 완료");
@@ -622,18 +618,24 @@ const Measurement: React.FC = () => {
           console.error("Pose 모델 초기화 실패:", error);
         }
       } else {
-        // Pose가 로드되지 않았으면 100ms 후 다시 시도
         setTimeout(initPose, 100);
       }
     };
 
     initPose();
-  }, [videoReady, handlePoseResults]);
 
-  // 체형 분석 시작 함수 (수동 시작)
+    return () => {
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+        socketRef.current = null;
+      }
+    };
+  }, [videoReady, navigate, handlePoseResults]);
+
+  // 체형 분석 시작 함수 (수동 시작용)
   const startAnalysis = (): void => {
-    if (!landmarks.length) {
-      console.log("랜드마크가 감지되지 않습니다.");
+    if (!landmarks.length || !socketRef.current) {
+      console.log("랜드마크가 감지되지 않거나 소켓 연결이 없습니다.");
       return;
     }
 
@@ -648,11 +650,9 @@ const Measurement: React.FC = () => {
   // 상태 기반 메시지 선택
   const getStatusMessage = (): string => {
     if (analyzing) {
-      if (isCollectingFrames) {
-        return `신체 데이터 수집 중입니다. (${collectedFrameCount}/10 프레임)`;
-      } else {
-        return "신체 측정 중입니다. 잠시만 기다려주세요.";
-      }
+      return "신체 측정 중입니다. 잠시만 기다려주세요.";
+    } else if (isCollectingFrames) {
+      return `정확한 측정을 위해 자세를 유지해주세요. (${frameBuffer.length}/${REQUIRED_FRAMES})`;
     } else if (countdown !== null) {
       return "잠시 자세를 유지해 주세요. 곧 측정이 시작됩니다.";
     } else if (bodyDetectionState === "detected") {
@@ -673,20 +673,20 @@ const Measurement: React.FC = () => {
         <BodyGuideText>
           {bodyDetectionState === "waiting"
             ? "전신이 보이도록 카메라 앞에 서주세요"
-            : bodyDetectionState === "collecting"
-            ? "움직이지 말고 자세를 유지해 주세요"
+            : isCollectingFrames
+            ? "자세를 유지해 주세요 - 프레임 수집 중"
             : "자세를 유지해 주세요"}
         </BodyGuideText>
 
         {/* 디버그 정보 표시 */}
-        <DebugOverlay>감지된 랜드마크: {visibleLandmarksCount}/33</DebugOverlay>
-
-        {/* 프레임 수집 카운터 */}
-        {isCollectingFrames && (
-          <FrameCounterOverlay>
-            프레임 수집: {collectedFrameCount}/10
-          </FrameCounterOverlay>
-        )}
+        <DebugOverlay>
+          감지된 랜드마크: {visibleLandmarksCount}/33
+          {isCollectingFrames && (
+            <div>
+              수집된 프레임: {frameBuffer.length}/{REQUIRED_FRAMES}
+            </div>
+          )}
+        </DebugOverlay>
 
         {/* 카운트다운 오버레이 */}
         {countdown !== null && (
@@ -695,8 +695,23 @@ const Measurement: React.FC = () => {
           </CountdownOverlay>
         )}
 
+        {/* 📌 프레임 수집 진행률 오버레이 */}
+        {isCollectingFrames && (
+          <CollectionOverlay>
+            <CollectionProgress>
+              프레임 수집 중... {frameBuffer.length}/{REQUIRED_FRAMES}
+            </CollectionProgress>
+            <ProgressBar>
+              <ProgressFill progress={collectionProgress} />
+            </ProgressBar>
+            <div style={{ color: "var(--white)", fontSize: "32px" }}>
+              자세를 유지해 주세요
+            </div>
+          </CollectionOverlay>
+        )}
+
         {/* 분석 중 오버레이 */}
-        {analyzing && !isCollectingFrames && (
+        {analyzing && (
           <AnalysisOverlay>
             <LottieContainer>
               <div
@@ -726,9 +741,13 @@ const Measurement: React.FC = () => {
         <PrimaryButton
           size="xl"
           fontSize="32px"
-          onClick={analyzing ? handleCancelAnalysis : startAnalysis}
+          onClick={
+            analyzing || isCollectingFrames
+              ? handleCancelAnalysis
+              : startAnalysis
+          }
         >
-          {analyzing ? "측정 그만하기" : "측정 시작하기"}
+          {analyzing || isCollectingFrames ? "측정 그만하기" : "측정 시작하기"}
         </PrimaryButton>
       </ButtonBox>
     </FullScreen>
