@@ -36,6 +36,10 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
   const showGuideline = true;
   const showDifferences = true;
 
+  // VideoContainer 크기에 맞게 비디오 크기 조정
+  const videoWidth = 2300;
+  const videoHeight = 1683;
+
   // 컨테이너 참조
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -231,8 +235,8 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
       <div className="w-full h-full">
         <WebcamCapture
           onVideoElementReady={handleVideoElementReady}
-          width={1280}
-          height={720}
+          width={videoWidth}
+          height={videoHeight}
         >
           {/* 원본 랜드마크 시각화 (녹색) */}
           {videoElement && rawLandmarks.length > 0 && (
@@ -242,8 +246,8 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
                 landmarks: [rawLandmarks],
                 worldLandmarks: [rawLandmarks],
               }}
-              width={1280}
-              height={720}
+              width={videoWidth}
+              height={videoHeight}
               showFace={showFace}
               color="#4ade80" // 밝은 녹색
               lineWidth={3}
@@ -256,8 +260,8 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
             <MediaPipeVisualizer
               videoElement={videoElement}
               results={processedMediaPipeResults}
-              width={1280}
-              height={720}
+              width={videoWidth}
+              height={videoHeight}
               showFace={showFace}
               color="#60a5fa" // 밝은 파란색
               lineWidth={3}
@@ -276,8 +280,8 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
                 videoElement={videoElement}
                 userLandmarks={rawLandmarks}
                 guidelineLandmarks={processedResult.visualizationLandmarks}
-                width={1280}
-                height={720}
+                width={videoWidth}
+                height={videoHeight}
               />
             )}
         </WebcamCapture>
