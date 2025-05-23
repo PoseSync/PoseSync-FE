@@ -59,6 +59,8 @@ export const useMediaPipe = (
   const videoReadyRef = useRef<boolean>(false);
   const processingRef = useRef<boolean>(false);
   const animationFrameRef = useRef<number | null>(null);
+  const initializationRetryRef = useRef<number>(0);
+  const lastProcessTimeRef = useRef<number>(0);
 
   // 기본 옵션값
   const {
@@ -146,6 +148,8 @@ export const useMediaPipe = (
 
         // 사용자 콜백 함수 호출
         if (onResults) onResults(poseResult);
+
+        console.log("랜드마크 감지됨:", landmarksWithId.length, "개");
       } catch (error) {
         console.error("포즈 결과 처리 중 오류:", error);
       } finally {
@@ -155,7 +159,7 @@ export const useMediaPipe = (
     [onResults]
   );
 
-  // MediaPipe Tasks 초기화 및 관리
+  // MediaPipe Tasks 초기화 및 관리 (안정성 개선)
   useEffect(() => {
     // 비디오 요소 없음
     if (!videoElement) {
@@ -171,6 +175,7 @@ export const useMediaPipe = (
 
     console.log("MediaPipe Tasks 초기화 시작");
     setIsLoading(true);
+    initializationRetryRef.current = 0;
 
     // MediaPipe 인스턴스 정리 함수
     const cleanupMediaPipe = () => {
@@ -193,27 +198,41 @@ export const useMediaPipe = (
     // 이전 인스턴스 정리
     cleanupMediaPipe();
 
-    // 단일 비동기 초기화 함수
+    // 안정적인 초기화 함수
     const initializeMediaPipe = async () => {
       try {
-        // MediaPipe Tasks 초기화
-        const vision = await FilesetResolver.forVisionTasks(
-          "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm"
-        );
+        console.log("FilesetResolver 초기화 시도...");
+
+        // 더 안정적인 CDN URL 사용
+        let vision;
+        try {
+          vision = await FilesetResolver.forVisionTasks(
+            "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.8/wasm"
+          );
+        } catch (wasmError) {
+          console.warn("0.10.8 버전 실패, 백업 URL 시도:", wasmError);
+          vision = await FilesetResolver.forVisionTasks(
+            "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm"
+          );
+        }
 
         console.log("파일셋 리졸버 초기화 완료");
 
-        // PoseLandmarker 인스턴스 생성
+        // PoseLandmarker 인스턴스 생성 (더 관대한 설정)
         const poseLandmarker = await PoseLandmarker.createFromOptions(vision, {
           baseOptions: {
             modelAssetPath:
               "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task",
-            delegate: "GPU",
+            delegate: "CPU", // GPU 대신 CPU 사용으로 안정성 확보
           },
+          runningMode: "VIDEO",
           numPoses: 1,
-          minPoseDetectionConfidence: minDetectionConfidence,
-          minPosePresenceConfidence: 0.5,
-          minTrackingConfidence: minTrackingConfidence,
+          minPoseDetectionConfidence: Math.max(
+            0.3,
+            minDetectionConfidence - 0.2
+          ), // 더 관대한 설정
+          minPosePresenceConfidence: 0.3,
+          minTrackingConfidence: Math.max(0.3, minTrackingConfidence - 0.2),
           outputSegmentationMasks: false,
         });
 
@@ -226,7 +245,8 @@ export const useMediaPipe = (
 
         poseLandmarkerRef.current = poseLandmarker;
 
-        // 애니메이션 프레임 루프
+        // 애니메이션 프레임 루프 (성능 최적화)
+        let lastVideoTime = -1;
         const detectPose = async () => {
           if (
             !mountedRef.current ||
@@ -246,11 +266,31 @@ export const useMediaPipe = (
               return;
             }
 
-            // 포즈 감지 수행
-            const results = poseLandmarkerRef.current.detect(videoElement);
-            handleResults(results as PoseLandmarkerResult);
+            // 프레임 스키핑으로 성능 최적화 (30fps로 제한)
+            const now = performance.now();
+            if (now - lastProcessTimeRef.current < 33) {
+              animationFrameRef.current = requestAnimationFrame(detectPose);
+              return;
+            }
+
+            const currentTime = videoElement.currentTime;
+
+            // 비디오 프레임이 변경되었을 때만 처리
+            if (currentTime !== lastVideoTime) {
+              lastVideoTime = currentTime;
+              lastProcessTimeRef.current = now;
+
+              // 포즈 감지 수행
+              const results = await poseLandmarkerRef.current.detectForVideo(
+                videoElement,
+                now
+              );
+
+              handleResults(results as PoseLandmarkerResult);
+            }
           } catch (err) {
-            console.error("포즈 프레임 전송 중 오류:", err);
+            console.error("포즈 프레임 처리 중 오류:", err);
+            // 에러가 발생해도 계속 시도
           }
 
           animationFrameRef.current = requestAnimationFrame(detectPose);
@@ -267,6 +307,19 @@ export const useMediaPipe = (
       } catch (err) {
         console.error("MediaPipe Tasks 초기화 오류:", err);
 
+        // 재시도 로직
+        initializationRetryRef.current += 1;
+
+        if (initializationRetryRef.current < 3 && mountedRef.current) {
+          console.log(`초기화 재시도 ${initializationRetryRef.current}/3`);
+          setTimeout(() => {
+            if (mountedRef.current) {
+              initializeMediaPipe();
+            }
+          }, 2000);
+          return;
+        }
+
         if (mountedRef.current) {
           setError(
             err instanceof Error
@@ -280,11 +333,16 @@ export const useMediaPipe = (
       }
     };
 
-    // 초기화 실행
-    initializeMediaPipe();
+    // 초기화 실행 (약간의 지연으로 안정성 확보)
+    const timeoutId = setTimeout(() => {
+      if (mountedRef.current) {
+        initializeMediaPipe();
+      }
+    }, 100);
 
     // 정리 함수
     return () => {
+      clearTimeout(timeoutId);
       console.log("MediaPipe Tasks 정리 시작");
       cleanupMediaPipe();
     };

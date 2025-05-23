@@ -3,7 +3,7 @@ import { PrimaryButton } from "../../components/buttons/PrimaryButton";
 import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
 import { useUserStore } from "../../store/useUserStore";
-import io, { Socket } from "socket.io-client";
+import axios from "axios";
 
 // 타입 선언
 interface Landmark {
@@ -248,7 +248,6 @@ const Measurement: React.FC = () => {
   const [collectionProgress, setCollectionProgress] = useState<number>(0);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const socketRef = useRef<Socket | null>(null);
   const poseRef = useRef<Pose | null>(null);
   const animationRef = useRef<number | null>(null);
   const countdownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -257,10 +256,13 @@ const Measurement: React.FC = () => {
   > | null>(null);
   const analysisTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // 🔥 로그 출력 제한을 위한 ref 추가
+  const logThrottleRef = useRef<number>(0);
+
   // 📌 프레임 수집 설정
   const REQUIRED_FRAMES = 50;
 
-  // Pose 결과 처리 콜백 (프레임 수집 로직 추가)
+  // 🔥 수정된 Pose 결과 처리 콜백 (의존성 배열 수정)
   const handlePoseResults = useCallback(
     (results: PoseResults): void => {
       if (!results || !results.poseLandmarks) return;
@@ -279,10 +281,24 @@ const Measurement: React.FC = () => {
       // 랜드마크 상태 업데이트
       setLandmarks(formattedLandmarks);
 
+      // 🔥 가시성 높은 랜드마크 개수 계산 (항상 실행 - 프레임 수집 중에도)
+      const visibleCount = formattedLandmarks.filter(
+        (lm) => lm.visibility !== undefined && lm.visibility > 0.5
+      ).length;
+      setVisibleLandmarksCount(visibleCount);
+
+      // 🔥 로그 출력 제한 (1초에 한 번만)
+      const now = Date.now();
+      if (now - logThrottleRef.current > 1000) {
+        console.log(`감지된 랜드마크: ${visibleCount}/33 (가시성 > 0.5)`);
+        logThrottleRef.current = now;
+      }
+
       // 📌 프레임 수집 중일 때 버퍼에 추가
-      if (isCollectingFrames && frameBuffer.length < REQUIRED_FRAMES) {
-        setFrameBuffer((prev) => {
-          const newBuffer = [...prev, formattedLandmarks];
+      setFrameBuffer((prevBuffer) => {
+        // 현재 수집 상태와 버퍼 길이를 함수 내부에서 확인
+        if (isCollectingFrames && prevBuffer.length < REQUIRED_FRAMES) {
+          const newBuffer = [...prevBuffer, formattedLandmarks];
           const progress = (newBuffer.length / REQUIRED_FRAMES) * 100;
           setCollectionProgress(progress);
 
@@ -296,18 +312,14 @@ const Measurement: React.FC = () => {
           }
 
           return newBuffer;
-        });
-        return; // 수집 중일 때는 다른 로직 실행 안함
+        }
+        return prevBuffer; // 수집 중이 아니면 기존 버퍼 유지
+      });
+
+      // 프레임 수집 중일 때는 다른 로직 실행 안함
+      if (isCollectingFrames) {
+        return;
       }
-
-      // 가시성 높은 랜드마크 개수 계산
-      const visibleCount = formattedLandmarks.filter(
-        (lm) => lm.visibility !== undefined && lm.visibility > 0.5
-      ).length;
-      setVisibleLandmarksCount(visibleCount);
-
-      // 콘솔에 감지된 랜드마크 개수 표시
-      console.log(`감지된 랜드마크: ${visibleCount}/33 (가시성 > 0.5)`);
 
       // 전신 감지 여부 확인
       const bodyVisible = isFullBodyVisible(formattedLandmarks);
@@ -347,18 +359,13 @@ const Measurement: React.FC = () => {
       analyzing,
       countdown,
       isCollectingFrames,
-      frameBuffer.length,
+      // 🔥 frameBuffer.length 제거! - 이게 핵심 수정사항
     ]
   );
 
-  // 📌 30프레임을 서버로 전송하는 함수 - 전화번호 숫자만 전송하도록 수정
+  // 🔥 수정된 HTTP API를 사용한 서버 전송 함수 (소켓 제거)
   const sendFramesToServer = useCallback(
-    (frames: Landmark[][]) => {
-      if (!socketRef.current) {
-        console.error("소켓이 연결되어 있지 않습니다.");
-        return;
-      }
-
+    async (frames: Landmark[][]) => {
       setAnalyzing(true);
       setBodyDetectionState("analyzing");
 
@@ -367,7 +374,7 @@ const Measurement: React.FC = () => {
 
       console.log("프레임 체형 분석 데이터 전송:", {
         frameCount: frames.length,
-        phoneNumber: numericPhoneNumber, // "01012345678" 형식으로 출력
+        phoneNumber: numericPhoneNumber,
         height: parseInt(height, 10),
       });
 
@@ -383,14 +390,48 @@ const Measurement: React.FC = () => {
         alert("측정 시간이 초과되었습니다. 다시 시도해주세요.");
       }, 45000);
 
-      // 🔥 서버에 프레임 체형 분석 요청 - 숫자만 포함된 전화번호 전송
-      socketRef.current.emit("analyze_body", {
-        landmarks: frames, // 프레임 배열
-        phoneNumber: numericPhoneNumber, // 숫자만 포함된 전화번호
-        height: parseInt(height, 10) || 170,
-      });
+      try {
+        // 🔥 HTTP API로 체형 분석 요청
+        const response = await axios.post<AnalysisResponse>(
+          "http://127.0.0.1:5001/api/body-analysis/analyze",
+          {
+            landmarks: frames, // 프레임 배열
+            phoneNumber: numericPhoneNumber, // 숫자만 포함된 전화번호
+          }
+        );
+
+        // 타임아웃 클리어
+        if (analysisTimeoutRef.current) {
+          clearTimeout(analysisTimeoutRef.current);
+          analysisTimeoutRef.current = null;
+        }
+
+        console.log("체형 분석 결과:", response.data);
+
+        if (response.data.success) {
+          setTimeout(() => {
+            navigate("/measurement-results", {
+              state: { analysisResult: response.data.result },
+            });
+          }, 2000);
+        } else {
+          resetToInitialState();
+          alert("체형 분석에 실패했습니다. 다시 시도해주세요.");
+        }
+      } catch (error) {
+        console.error("체형 분석 API 오류:", error);
+
+        // 타임아웃 클리어
+        if (analysisTimeoutRef.current) {
+          clearTimeout(analysisTimeoutRef.current);
+          analysisTimeoutRef.current = null;
+        }
+
+        resetToInitialState();
+        alert("체형 분석 중 오류가 발생했습니다. 다시 시도해주세요.");
+      }
     },
-    [phoneNumber, height]
+    [phoneNumber, height, navigate]
   );
 
   // 전신 포즈 감지 여부 확인
@@ -550,13 +591,16 @@ const Measurement: React.FC = () => {
     };
   }, []);
 
-  // 카메라 프레임 전송 루프
+  // 🔥 수정된 카메라 프레임 전송 루프 (프레임 처리 최적화)
   const startCamera = (): void => {
     if (!videoRef.current || !poseRef.current) return;
 
     const sendFrame = async (): Promise<void> => {
       if (videoRef.current && videoRef.current.readyState >= 2) {
-        await poseRef.current?.send({ image: videoRef.current });
+        // 🔥 분석 중이 아닐 때만 MediaPipe로 프레임 전송 (성능 최적화)
+        if (!analyzing) {
+          await poseRef.current?.send({ image: videoRef.current });
+        }
       }
 
       animationRef.current = requestAnimationFrame(sendFrame);
@@ -565,35 +609,9 @@ const Measurement: React.FC = () => {
     sendFrame();
   };
 
-  // 소켓 연결 및 Pose 모델 초기화
+  // 🔥 수정된 Pose 모델 초기화 (소켓 연결 제거)
   useEffect(() => {
     if (!videoReady) return;
-
-    socketRef.current = io("http://localhost:5001");
-
-    socketRef.current.on("connect", () => {
-      console.log("소켓 서버에 연결되었습니다.");
-    });
-
-    socketRef.current.on("body_analysis_result", (data: AnalysisResponse) => {
-      console.log("체형 분석 결과:", data);
-
-      if (analysisTimeoutRef.current) {
-        clearTimeout(analysisTimeoutRef.current);
-        analysisTimeoutRef.current = null;
-      }
-
-      if (data.success) {
-        setTimeout(() => {
-          navigate("/measurement-results", {
-            state: { analysisResult: data.result },
-          });
-        }, 2000);
-      } else {
-        resetToInitialState();
-        alert("체형 분석에 실패했습니다. 다시 시도해주세요.");
-      }
-    });
 
     const initPose = async (): Promise<void> => {
       if (typeof window.Pose !== "undefined") {
@@ -627,18 +645,13 @@ const Measurement: React.FC = () => {
 
     initPose();
 
-    return () => {
-      if (socketRef.current) {
-        socketRef.current.disconnect();
-        socketRef.current = null;
-      }
-    };
-  }, [videoReady, navigate, handlePoseResults]);
+    // 🔥 소켓 연결 관련 코드 제거됨
+  }, [videoReady, handlePoseResults]);
 
   // 체형 분석 시작 함수 (수동 시작용)
   const startAnalysis = (): void => {
-    if (!landmarks.length || !socketRef.current) {
-      console.log("랜드마크가 감지되지 않거나 소켓 연결이 없습니다.");
+    if (!landmarks.length) {
+      console.log("랜드마크가 감지되지 않습니다.");
       return;
     }
 

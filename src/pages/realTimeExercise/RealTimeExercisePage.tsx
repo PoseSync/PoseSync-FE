@@ -121,12 +121,12 @@ const AccuracyBarBackground = styled.div`
 `;
 
 // 정확도 바 진행
-const AccuracyBarProgress = styled.div<{ value: number }>`
-  width: ${(props) => props.value}%;
+const AccuracyBarProgress = styled.div<{ $value: number }>`
+  width: ${(props) => props.$value}%;
   height: 100%;
   background-color: ${(props) => {
-    if (props.value >= 80) return "var(--green-500)";
-    if (props.value >= 50) return "var(--yellow-400)";
+    if (props.$value >= 80) return "var(--green-500)";
+    if (props.$value >= 50) return "var(--yellow-400)";
     return "var(--red-400)";
   }};
   border-radius: 10px;
@@ -134,12 +134,12 @@ const AccuracyBarProgress = styled.div<{ value: number }>`
 `;
 
 // 전송 버튼 스타일
-const TransmitButton = styled.button<{ active?: boolean }>`
+const TransmitButton = styled.button<{ $active?: boolean }>`
   background: ${(props) =>
-    props.active ? "var(--yellow-500)" : "var(--gray-700)"};
+    props.$active ? "var(--yellow-500)" : "var(--gray-700)"};
   padding: 20px;
   border-radius: var(--radius-xs);
-  color: ${(props) => (props.active ? "var(--gray-900)" : "white")};
+  color: ${(props) => (props.$active ? "var(--gray-900)" : "white")};
   border: none;
   cursor: pointer;
   font-family: "Pretendard Variable", sans-serif;
@@ -168,20 +168,20 @@ const FeedbackTitle = styled.div`
   margin-bottom: 20px;
 `;
 
-// 피드백 메시지 - 중요도에 따라 다른 스타일 적용
-const FeedbackMessage = styled.div<{ isImportant?: boolean }>`
+// 피드백 메시지 - 중요도에 따라 다른 스타일 적용 ($ 접두사 사용)
+const FeedbackMessage = styled.div<{ $isImportant?: boolean }>`
   color: ${(props) =>
-    props.isImportant ? "var(--yellow-400)" : "var(--gray-200)"};
+    props.$isImportant ? "var(--yellow-400)" : "var(--gray-200)"};
   font-family: "Pretendard Variable", sans-serif;
-  font-weight: ${(props) => (props.isImportant ? "700" : "500")};
+  font-weight: ${(props) => (props.$isImportant ? "700" : "500")};
   font-size: 36px;
   background: ${(props) =>
-    props.isImportant ? "var(--gray-600)" : "var(--gray-700)"};
+    props.$isImportant ? "var(--gray-600)" : "var(--gray-700)"};
   padding: 16px;
   border-radius: var(--radius-xs);
   margin-bottom: 10px;
   border-left: ${(props) =>
-    props.isImportant ? "4px solid var(--yellow-400)" : "none"};
+    props.$isImportant ? "4px solid var(--yellow-400)" : "none"};
 `;
 
 // 준비 중 알림 컴포넌트
@@ -528,13 +528,13 @@ const RealTimeExercisePage: React.FC = () => {
                 <AccuracyDisplay>
                   정확도: {accuracy}%
                   <AccuracyBarBackground>
-                    <AccuracyBarProgress value={accuracy} />
+                    <AccuracyBarProgress $value={accuracy} />
                   </AccuracyBarBackground>
                 </AccuracyDisplay>
 
                 {/* 전송 버튼 */}
                 <TransmitButton
-                  active={isTransmitting}
+                  $active={isTransmitting}
                   onClick={toggleTransmission}
                 >
                   {isTransmitting ? "전송 중지" : "전송 시작"}
@@ -555,7 +555,7 @@ const RealTimeExercisePage: React.FC = () => {
                     feedback.includes("시작합니다");
 
                   return (
-                    <FeedbackMessage key={index} isImportant={isImportant}>
+                    <FeedbackMessage key={index} $isImportant={isImportant}>
                       {feedback}
                     </FeedbackMessage>
                   );
