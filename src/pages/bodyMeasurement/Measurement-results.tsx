@@ -189,7 +189,7 @@ const InfoTextBase = styled.div`
   color: var(--white);
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   font-family: "Pretendard Variable", sans-serif;
 `;
 
@@ -198,12 +198,12 @@ const ResultTextBase = styled.div`
   color: var(--white);
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   font-family: "Pretendard Variable", sans-serif;
 `;
 
 const ArmInfoText = styled(InfoTextBase)`
-  width: 423px;
+  width: 435px;
   height: 56px;
   font-weight: 500;
   font-size: 44px;
@@ -221,7 +221,7 @@ const FemurInfoText = styled(InfoTextBase)`
   margin-bottom: 12px;
 `;
 const HipJointInfoText = styled(InfoTextBase)`
-  width: 555px;
+  width: 430px;
   height: 56px;
   font-weight: 500;
   font-size: 44px;
@@ -230,7 +230,7 @@ const HipJointInfoText = styled(InfoTextBase)`
   margin-bottom: 12px;
 `;
 const BodyRatioInfoText = styled(InfoTextBase)`
-  width: 332px;
+  width: 358px;
   height: 56px;
   font-weight: 500;
   font-size: 44px;
@@ -267,7 +267,7 @@ const HipJointResultText = styled(ResultTextBase)`
   margin-bottom: 0;
 `;
 const BodyRatioResultText = styled(ResultTextBase)`
-  width: 603px;
+  width: 586px;
   height: 100px;
   font-weight: 700;
   font-size: 80px;
