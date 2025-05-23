@@ -121,12 +121,12 @@ const AccuracyBarBackground = styled.div`
 `;
 
 // 정확도 바 진행
-const AccuracyBarProgress = styled.div<{ value: number }>`
-  width: ${(props) => props.value}%;
+const AccuracyBarProgress = styled.div<{ $value: number }>`
+  width: ${(props) => props.$value}%;
   height: 100%;
   background-color: ${(props) => {
-    if (props.value >= 80) return "var(--green-500)";
-    if (props.value >= 50) return "var(--yellow-400)";
+    if (props.$value >= 80) return "var(--green-500)";
+    if (props.$value >= 50) return "var(--yellow-400)";
     return "var(--red-400)";
   }};
   border-radius: 10px;
@@ -134,12 +134,12 @@ const AccuracyBarProgress = styled.div<{ value: number }>`
 `;
 
 // 전송 버튼 스타일
-const TransmitButton = styled.button<{ active?: boolean }>`
+const TransmitButton = styled.button<{ $active?: boolean }>`
   background: ${(props) =>
-    props.active ? "var(--yellow-500)" : "var(--gray-700)"};
+    props.$active ? "var(--yellow-500)" : "var(--gray-700)"};
   padding: 20px;
   border-radius: var(--radius-xs);
-  color: ${(props) => (props.active ? "var(--gray-900)" : "white")};
+  color: ${(props) => (props.$active ? "var(--gray-900)" : "white")};
   border: none;
   cursor: pointer;
   font-family: "Pretendard Variable", sans-serif;
@@ -168,20 +168,20 @@ const FeedbackTitle = styled.div`
   margin-bottom: 20px;
 `;
 
-// 피드백 메시지 - 중요도에 따라 다른 스타일 적용
-const FeedbackMessage = styled.div<{ isImportant?: boolean }>`
+// 피드백 메시지 - 중요도에 따라 다른 스타일 적용 ($ 접두사 사용)
+const FeedbackMessage = styled.div<{ $isImportant?: boolean }>`
   color: ${(props) =>
-    props.isImportant ? "var(--yellow-400)" : "var(--gray-200)"};
+    props.$isImportant ? "var(--yellow-400)" : "var(--gray-200)"};
   font-family: "Pretendard Variable", sans-serif;
-  font-weight: ${(props) => (props.isImportant ? "700" : "500")};
+  font-weight: ${(props) => (props.$isImportant ? "700" : "500")};
   font-size: 36px;
   background: ${(props) =>
-    props.isImportant ? "var(--gray-600)" : "var(--gray-700)"};
+    props.$isImportant ? "var(--gray-600)" : "var(--gray-700)"};
   padding: 16px;
   border-radius: var(--radius-xs);
   margin-bottom: 10px;
   border-left: ${(props) =>
-    props.isImportant ? "4px solid var(--yellow-400)" : "none"};
+    props.$isImportant ? "4px solid var(--yellow-400)" : "none"};
 `;
 
 // 준비 중 알림 컴포넌트
@@ -361,15 +361,46 @@ const RealTimeExercisePage: React.FC = () => {
     [sets, currentSet, handleFeedback, navigate]
   );
 
-  // 전송 상태 토글
+  // 전송 상태 토글 (수정된 부분)
   const toggleTransmission = () => {
+    const wasTransmitting = isTransmitting;
+
     setIsTransmitting((prev) => !prev);
 
-    // 전송 시작 시 피드백 및 정확도 초기화
-    if (!isTransmitting) {
-      setAccuracy(75); // 기본 정확도로 리셋
-      setFeedbacks([]); // 피드백 메시지 초기화
+    if (wasTransmitting) {
+      // 전송을 중단하는 경우 - disconnect_client 패킷 전송
+      console.log("🔴 전송 중단 - disconnect_client 패킷 전송");
+      handleDisconnectClient();
+
+      // 피드백 및 정확도 초기화
+      setFeedbacks([]);
+      setAccuracy(75);
+
+      // 피드백 메시지 추가
+      handleFeedback("운동이 중단되었습니다. 결과가 저장됩니다.");
+    } else {
+      // 전송을 시작하는 경우
+      console.log("🟢 전송 시작");
+
+      // 피드백 및 정확도 초기화
+      setAccuracy(75);
+      setFeedbacks([]);
+
+      // 피드백 메시지 추가
+      handleFeedback("운동 전송을 시작합니다. 자세를 취해주세요.");
     }
+  };
+
+  // disconnect_client 패킷 전송 함수
+  const handleDisconnectClient = () => {
+    // PoseDetector 컴포넌트의 disconnect 함수를 호출하기 위해
+    // ref를 통해 호출하거나, 상태를 통해 신호를 보냄
+    // 여기서는 PoseDetector에서 isTransmitting이 false가 되는 것을 감지하여 처리하도록 함
+
+    console.log("운동 중단 처리 중...");
+
+    // 현재 운동 횟수와 함께 disconnect_client 정보를 PoseDetector로 전달
+    // 이는 PoseDetector 컴포넌트에서 처리될 예정
   };
 
   // 현재 세트 정보
@@ -474,6 +505,8 @@ const RealTimeExercisePage: React.FC = () => {
                 onCountUpdate={handleCountUpdate}
                 onFeedback={handleFeedback}
                 isTransmitting={isTransmitting}
+                currentCount={count} // 현재 운동 횟수 전달
+                shouldDisconnect={!isTransmitting} // 전송 중단 신호 전달
               />
             </VideoContainer>
 
@@ -495,13 +528,13 @@ const RealTimeExercisePage: React.FC = () => {
                 <AccuracyDisplay>
                   정확도: {accuracy}%
                   <AccuracyBarBackground>
-                    <AccuracyBarProgress value={accuracy} />
+                    <AccuracyBarProgress $value={accuracy} />
                   </AccuracyBarBackground>
                 </AccuracyDisplay>
 
                 {/* 전송 버튼 */}
                 <TransmitButton
-                  active={isTransmitting}
+                  $active={isTransmitting}
                   onClick={toggleTransmission}
                 >
                   {isTransmitting ? "전송 중지" : "전송 시작"}
@@ -517,10 +550,12 @@ const RealTimeExercisePage: React.FC = () => {
                     feedback.includes("자세가 크게 벗어났습니다") ||
                     feedback.includes("세트 완료") ||
                     feedback.includes("수고하셨습니다") ||
-                    feedback.includes("매우 정확합니다");
+                    feedback.includes("매우 정확합니다") ||
+                    feedback.includes("중단되었습니다") ||
+                    feedback.includes("시작합니다");
 
                   return (
-                    <FeedbackMessage key={index} isImportant={isImportant}>
+                    <FeedbackMessage key={index} $isImportant={isImportant}>
                       {feedback}
                     </FeedbackMessage>
                   );
