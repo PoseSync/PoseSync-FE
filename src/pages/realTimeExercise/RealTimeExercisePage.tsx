@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import styled from "styled-components";
 import Gnb from "../../components/gnb/Gnb";
 import PoseDetector from "../../components/realTimeExercise/PoseDetector";
@@ -21,15 +21,15 @@ const Container = styled.div`
   display: flex;
   align-items: center;
   justify-content: center;
-  padding-top: var(--margin-6);
 `;
 
 const ExerciseContainer = styled.div`
   width: 3020px;
-  height: 1800px;
+  height: 1980px;
   display: flex;
   flex-direction: column;
   gap: var(--gap-5);
+  justify-content: center; /* 중앙 정렬을 위해 추가 */
 `;
 
 const TitleContainer = styled.div`
@@ -50,14 +50,39 @@ const MainContentContainer = styled.div`
   display: flex;
   gap: var(--gap-8);
   height: 1683px;
+  align-items: center; /* 수직 중앙 정렬 */
 `;
 
+// 비디오 컨테이너 중앙 정렬 및 위치 조정
 const VideoContainer = styled.div`
-  width: 2300px;
-  height: 1683px;
+  width: 1920px;
+  height: 1080px;
   border-radius: var(--radius-xl);
   overflow: hidden;
   position: relative;
+  margin: 0 auto;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+`;
+
+// 전체화면 버튼 추가
+const FullscreenButton = styled.button`
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background-color: rgba(0, 0, 0, 0.5);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 8px 12px;
+  cursor: pointer;
+  z-index: 10;
+  font-size: 24px;
+
+  &:hover {
+    background-color: rgba(0, 0, 0, 0.7);
+  }
 `;
 
 const InfoContainer = styled.div`
@@ -66,6 +91,7 @@ const InfoContainer = styled.div`
   display: flex;
   flex-direction: column;
   gap: var(--gap-5);
+  justify-content: center; /* 중앙 정렬을 위해 추가 */
 `;
 
 const ControlPanel = styled.div`
@@ -236,6 +262,7 @@ const RealTimeExercisePage: React.FC = () => {
   const exercise = useExerciseStore((state) => state.selectedExercise);
   const sets = useExerciseStore((state) => state.sets);
   const phoneNumber = useUserStore((state) => state.phoneNumber);
+  const videoContainerRef = useRef<HTMLDivElement>(null); // 비디오 컨테이너 참조 추가
 
   // 테스트용 전화번호 설정
   const testPhoneNumber = "01012345678";
@@ -248,6 +275,52 @@ const RealTimeExercisePage: React.FC = () => {
   const [accuracy, setAccuracy] = useState<number>(75);
   // 3D 모드를 사용하지 않으므로 항상 "2d"로 고정
   const visualizationMode = "2d";
+  // 전체화면 상태
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // 전체화면 토글 함수
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      // 전체화면으로 전환
+      if (
+        videoContainerRef.current &&
+        videoContainerRef.current.requestFullscreen
+      ) {
+        videoContainerRef.current
+          .requestFullscreen()
+          .then(() => {
+            setIsFullscreen(true);
+          })
+          .catch((err) => {
+            console.error(`전체화면 오류: ${err.message}`);
+          });
+      }
+    } else {
+      // 전체화면 종료
+      if (document.exitFullscreen) {
+        document
+          .exitFullscreen()
+          .then(() => {
+            setIsFullscreen(false);
+          })
+          .catch((err) => {
+            console.error(`전체화면 종료 오류: ${err.message}`);
+          });
+      }
+    }
+  };
+
+  // 전체화면 상태 변경 감지
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+    };
+  }, []);
 
   // 피드백 추가 함수 - useCallback으로 메모이제이션하여 의존성 배열에 안전하게 사용
   const handleFeedback = useCallback((message: string) => {
@@ -497,7 +570,7 @@ const RealTimeExercisePage: React.FC = () => {
           </TitleContainer>
           <MainContentContainer>
             {/* 왼쪽: 카메라 영역 */}
-            <VideoContainer>
+            <VideoContainer ref={videoContainerRef}>
               <PoseDetector
                 phoneNumber={phoneNumber || testPhoneNumber}
                 exerciseType={getExerciseType(exercise.name)}
@@ -508,6 +581,10 @@ const RealTimeExercisePage: React.FC = () => {
                 currentCount={count} // 현재 운동 횟수 전달
                 shouldDisconnect={!isTransmitting} // 전송 중단 신호 전달
               />
+              {/* 전체화면 버튼 추가 */}
+              <FullscreenButton onClick={toggleFullscreen}>
+                {isFullscreen ? "전체화면 종료" : "전체화면"}
+              </FullscreenButton>
             </VideoContainer>
 
             {/* 오른쪽: 정보 패널 */}
