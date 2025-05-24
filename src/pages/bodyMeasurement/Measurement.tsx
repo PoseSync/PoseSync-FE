@@ -59,14 +59,43 @@ interface PoseOptions {
   minTrackingConfidence: number;
 }
 
+// MediaPipe Module 타입 정의
+interface MediaPipeModule {
+  arguments_?: string[];
+  [key: string]: unknown;
+}
+
 // Window 타입 확장
 declare global {
   interface Window {
     Pose: {
       new (options?: { locateFile: (file: string) => string }): Pose;
     };
+    Module: MediaPipeModule;
+    gc?: () => void;
   }
 }
+
+// MediaPipe 정리 함수 (임시 구현)
+const cleanupMediaPipe = (): void => {
+  try {
+    // Module 객체 정리
+    if (window.Module) {
+      const moduleBackup: MediaPipeModule = {
+        arguments_: window.Module.arguments_,
+      };
+      window.Module = moduleBackup;
+      console.log("MediaPipe Module 정리 완료");
+    }
+
+    // 가비지 컬렉션 힌트
+    if (window.gc) {
+      window.gc();
+    }
+  } catch (error) {
+    console.error("MediaPipe 정리 중 오류:", error);
+  }
+};
 
 // 컴포넌트 스타일들
 const FullScreen = styled.div`
@@ -259,8 +288,189 @@ const Measurement: React.FC = () => {
   // 🔥 로그 출력 제한을 위한 ref 추가
   const logThrottleRef = useRef<number>(0);
 
+  // 분석 상태 추적을 위한 ref 추가
+  const analysingRef = useRef<boolean>(false);
+  const analysisCompletedRef = useRef<boolean>(false);
+
   // 📌 프레임 수집 설정
   const REQUIRED_FRAMES = 50;
+
+  // 초기 상태로 리셋
+  const resetToInitialState = useCallback((): void => {
+    analysingRef.current = false;
+    setAnalyzing(false);
+    setCountdown(null);
+    setFullBodyDetected(false);
+    setBodyDetectionState("waiting");
+
+    // 📌 프레임 수집 관련 상태도 리셋
+    setIsCollectingFrames(false);
+    setFrameBuffer([]);
+    setCollectionProgress(0);
+
+    // 모든 타이머 제거
+    if (countdownTimerRef.current) {
+      clearInterval(countdownTimerRef.current);
+      countdownTimerRef.current = null;
+    }
+
+    if (fullBodyDetectionTimerRef.current) {
+      clearTimeout(fullBodyDetectionTimerRef.current);
+      fullBodyDetectionTimerRef.current = null;
+    }
+
+    if (analysisTimeoutRef.current) {
+      clearTimeout(analysisTimeoutRef.current);
+      analysisTimeoutRef.current = null;
+    }
+  }, []);
+
+  // 📌 프레임 수집 시작 함수
+  const startFrameCollection = useCallback((): void => {
+    console.log(`🎬 ${REQUIRED_FRAMES}프레임 수집 시작`);
+    setIsCollectingFrames(true);
+    setFrameBuffer([]);
+    setCollectionProgress(0);
+    setBodyDetectionState("collecting");
+  }, [REQUIRED_FRAMES]);
+
+  // 체형 분석 완료 시 세션 스토리지에 완료 상태 저장
+  const handleAnalysisComplete = useCallback(
+    (result: AnalysisResult): void => {
+      // 체형 분석 완료 상태 저장
+      sessionStorage.setItem("bodyAnalysisCompleted", "true");
+      analysisCompletedRef.current = true;
+
+      // 결과 페이지로 이동
+      navigate("/measurement-results", {
+        state: { analysisResult: result },
+      });
+    },
+    [navigate]
+  );
+
+  // 전신 포즈 감지 여부 확인
+  const isFullBodyVisible = useCallback((landmarks: Landmark[]): boolean => {
+    if (landmarks.length < 33) return false;
+
+    const keyJoints = [
+      11,
+      12,
+      13,
+      14,
+      15,
+      16, // 어깨, 팔꿈치, 손목
+      23,
+      24,
+      25,
+      26,
+      27,
+      28, // 엉덩이, 무릎, 발목
+    ];
+
+    return keyJoints.every((id) => {
+      const landmark = landmarks.find((lm) => lm.id === id);
+      return (
+        landmark &&
+        landmark.visibility !== undefined &&
+        landmark.visibility > 0.5
+      );
+    });
+  }, []);
+
+  // 🔥 수정된 HTTP API를 사용한 서버 전송 함수 (소켓 제거)
+  const sendFramesToServer = useCallback(
+    async (frames: Landmark[][]) => {
+      analysingRef.current = true;
+      setAnalyzing(true);
+      setBodyDetectionState("analyzing");
+
+      // 🔥 전화번호에서 숫자만 추출
+      const numericPhoneNumber = phoneNumber.replace(/[^0-9]/g, "");
+
+      console.log("프레임 체형 분석 데이터 전송:", {
+        frameCount: frames.length,
+        phoneNumber: numericPhoneNumber,
+        height: parseInt(height, 10),
+      });
+
+      // 기존 타임아웃 제거
+      if (analysisTimeoutRef.current) {
+        clearTimeout(analysisTimeoutRef.current);
+      }
+
+      // 45초 타임아웃 설정 (프레임 처리 시간 고려)
+      analysisTimeoutRef.current = setTimeout(() => {
+        console.log("측정 시간 초과 (45초)");
+        resetToInitialState();
+        alert("측정 시간이 초과되었습니다. 다시 시도해주세요.");
+      }, 45000);
+
+      try {
+        // 🔥 HTTP API로 체형 분석 요청
+        const response = await axios.post<AnalysisResponse>(
+          "http://127.0.0.1:5001/api/body-analysis/analyze",
+          {
+            landmarks: frames, // 프레임 배열
+            phoneNumber: numericPhoneNumber, // 숫자만 포함된 전화번호
+          }
+        );
+
+        // 타임아웃 클리어
+        if (analysisTimeoutRef.current) {
+          clearTimeout(analysisTimeoutRef.current);
+          analysisTimeoutRef.current = null;
+        }
+
+        console.log("체형 분석 결과:", response.data);
+
+        if (response.data.success) {
+          // 체형 분석 완료 상태 저장 및 결과 페이지로 이동
+          handleAnalysisComplete(response.data.result);
+        } else {
+          resetToInitialState();
+          alert("체형 분석에 실패했습니다. 다시 시도해주세요.");
+        }
+      } catch (error) {
+        console.error("체형 분석 API 오류:", error);
+
+        // 타임아웃 클리어
+        if (analysisTimeoutRef.current) {
+          clearTimeout(analysisTimeoutRef.current);
+          analysisTimeoutRef.current = null;
+        }
+
+        analysingRef.current = false;
+        resetToInitialState();
+        alert("체형 분석 중 오류가 발생했습니다. 다시 시도해주세요.");
+      }
+    },
+    [phoneNumber, height, handleAnalysisComplete, resetToInitialState]
+  );
+
+  // 카운트다운 시작
+  const startCountdown = useCallback((): void => {
+    setCountdown(10);
+
+    if (countdownTimerRef.current) {
+      clearInterval(countdownTimerRef.current);
+    }
+
+    countdownTimerRef.current = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev === null || prev <= 1) {
+          if (countdownTimerRef.current) {
+            clearInterval(countdownTimerRef.current);
+            countdownTimerRef.current = null;
+          }
+          // 📌 카운트다운 종료 후 프레임 수집 시작
+          startFrameCollection();
+          return null;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  }, [startFrameCollection]);
 
   // 🔥 수정된 Pose 결과 처리 콜백 (의존성 배열 수정)
   const handlePoseResults = useCallback(
@@ -359,171 +569,30 @@ const Measurement: React.FC = () => {
       analyzing,
       countdown,
       isCollectingFrames,
-      // 🔥 frameBuffer.length 제거! - 이게 핵심 수정사항
+      REQUIRED_FRAMES,
+      sendFramesToServer,
+      isFullBodyVisible,
+      startCountdown,
     ]
   );
 
-  // 🔥 수정된 HTTP API를 사용한 서버 전송 함수 (소켓 제거)
-  const sendFramesToServer = useCallback(
-    async (frames: Landmark[][]) => {
-      setAnalyzing(true);
-      setBodyDetectionState("analyzing");
+  // 🔥 수정된 카메라 프레임 전송 루프 (프레임 처리 최적화)
+  const startCamera = useCallback((): void => {
+    if (!videoRef.current || !poseRef.current) return;
 
-      // 🔥 전화번호에서 숫자만 추출
-      const numericPhoneNumber = phoneNumber.replace(/[^0-9]/g, "");
-
-      console.log("프레임 체형 분석 데이터 전송:", {
-        frameCount: frames.length,
-        phoneNumber: numericPhoneNumber,
-        height: parseInt(height, 10),
-      });
-
-      // 기존 타임아웃 제거
-      if (analysisTimeoutRef.current) {
-        clearTimeout(analysisTimeoutRef.current);
+    const sendFrame = async (): Promise<void> => {
+      if (videoRef.current && videoRef.current.readyState >= 2) {
+        // 🔥 분석 중이 아닐 때만 MediaPipe로 프레임 전송 (성능 최적화)
+        if (!analyzing) {
+          await poseRef.current?.send({ image: videoRef.current });
+        }
       }
 
-      // 45초 타임아웃 설정 (프레임 처리 시간 고려)
-      analysisTimeoutRef.current = setTimeout(() => {
-        console.log("측정 시간 초과 (45초)");
-        resetToInitialState();
-        alert("측정 시간이 초과되었습니다. 다시 시도해주세요.");
-      }, 45000);
+      animationRef.current = requestAnimationFrame(sendFrame);
+    };
 
-      try {
-        // 🔥 HTTP API로 체형 분석 요청
-        const response = await axios.post<AnalysisResponse>(
-          "http://127.0.0.1:5001/api/body-analysis/analyze",
-          {
-            landmarks: frames, // 프레임 배열
-            phoneNumber: numericPhoneNumber, // 숫자만 포함된 전화번호
-          }
-        );
-
-        // 타임아웃 클리어
-        if (analysisTimeoutRef.current) {
-          clearTimeout(analysisTimeoutRef.current);
-          analysisTimeoutRef.current = null;
-        }
-
-        console.log("체형 분석 결과:", response.data);
-
-        if (response.data.success) {
-          setTimeout(() => {
-            navigate("/measurement-results", {
-              state: { analysisResult: response.data.result },
-            });
-          }, 2000);
-        } else {
-          resetToInitialState();
-          alert("체형 분석에 실패했습니다. 다시 시도해주세요.");
-        }
-      } catch (error) {
-        console.error("체형 분석 API 오류:", error);
-
-        // 타임아웃 클리어
-        if (analysisTimeoutRef.current) {
-          clearTimeout(analysisTimeoutRef.current);
-          analysisTimeoutRef.current = null;
-        }
-
-        resetToInitialState();
-        alert("체형 분석 중 오류가 발생했습니다. 다시 시도해주세요.");
-      }
-    },
-    [phoneNumber, height, navigate]
-  );
-
-  // 전신 포즈 감지 여부 확인
-  const isFullBodyVisible = (landmarks: Landmark[]): boolean => {
-    if (landmarks.length < 33) return false;
-
-    const keyJoints = [
-      11,
-      12,
-      13,
-      14,
-      15,
-      16, // 어깨, 팔꿈치, 손목
-      23,
-      24,
-      25,
-      26,
-      27,
-      28, // 엉덩이, 무릎, 발목
-    ];
-
-    return keyJoints.every((id) => {
-      const landmark = landmarks.find((lm) => lm.id === id);
-      return (
-        landmark &&
-        landmark.visibility !== undefined &&
-        landmark.visibility > 0.5
-      );
-    });
-  };
-
-  // 카운트다운 시작
-  const startCountdown = (): void => {
-    setCountdown(10);
-
-    if (countdownTimerRef.current) {
-      clearInterval(countdownTimerRef.current);
-    }
-
-    countdownTimerRef.current = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev === null || prev <= 1) {
-          if (countdownTimerRef.current) {
-            clearInterval(countdownTimerRef.current);
-            countdownTimerRef.current = null;
-          }
-          // 📌 카운트다운 종료 후 프레임 수집 시작
-          startFrameCollection();
-          return null;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-  };
-
-  // 📌 프레임 수집 시작 함수
-  const startFrameCollection = (): void => {
-    console.log(`🎬 ${REQUIRED_FRAMES}프레임 수집 시작`);
-    setIsCollectingFrames(true);
-    setFrameBuffer([]);
-    setCollectionProgress(0);
-    setBodyDetectionState("collecting");
-  };
-
-  // 초기 상태로 리셋
-  const resetToInitialState = (): void => {
-    setAnalyzing(false);
-    setCountdown(null);
-    setFullBodyDetected(false);
-    setBodyDetectionState("waiting");
-
-    // 📌 프레임 수집 관련 상태도 리셋
-    setIsCollectingFrames(false);
-    setFrameBuffer([]);
-    setCollectionProgress(0);
-
-    // 모든 타이머 제거
-    if (countdownTimerRef.current) {
-      clearInterval(countdownTimerRef.current);
-      countdownTimerRef.current = null;
-    }
-
-    if (fullBodyDetectionTimerRef.current) {
-      clearTimeout(fullBodyDetectionTimerRef.current);
-      fullBodyDetectionTimerRef.current = null;
-    }
-
-    if (analysisTimeoutRef.current) {
-      clearTimeout(analysisTimeoutRef.current);
-      analysisTimeoutRef.current = null;
-    }
-  };
+    sendFrame();
+  }, [analyzing]);
 
   // 카메라 초기화
   useEffect(() => {
@@ -584,30 +653,47 @@ const Measurement: React.FC = () => {
         stream.getTracks().forEach((track) => track.stop());
       }
 
+      // MediaPipe 인스턴스 정리
       if (poseRef.current) {
-        poseRef.current.close();
-        poseRef.current = null;
-      }
-    };
-  }, []);
-
-  // 🔥 수정된 카메라 프레임 전송 루프 (프레임 처리 최적화)
-  const startCamera = (): void => {
-    if (!videoRef.current || !poseRef.current) return;
-
-    const sendFrame = async (): Promise<void> => {
-      if (videoRef.current && videoRef.current.readyState >= 2) {
-        // 🔥 분석 중이 아닐 때만 MediaPipe로 프레임 전송 (성능 최적화)
-        if (!analyzing) {
-          await poseRef.current?.send({ image: videoRef.current });
+        try {
+          poseRef.current.close();
+          poseRef.current = null;
+          console.log("Pose 인스턴스 정리 완료");
+        } catch (e) {
+          console.error("Pose 인스턴스 정리 중 오류:", e);
         }
       }
 
-      animationRef.current = requestAnimationFrame(sendFrame);
-    };
+      // WASM 모듈 상태 초기화 (전역 변수 정리)
+      if (window.Module) {
+        try {
+          // 필요한 속성만 유지
+          const moduleBackup: MediaPipeModule = {
+            arguments_: window.Module.arguments_,
+          };
 
-    sendFrame();
-  };
+          // Module 객체 초기화
+          window.Module = moduleBackup;
+          console.log("Module 객체 정리 완료");
+        } catch (e) {
+          console.error("Module 객체 정리 중 오류:", e);
+        }
+      }
+
+      // 체형 분석 중단 시 완료 상태 제거
+      if (analysingRef.current === false && !analysisCompletedRef.current) {
+        sessionStorage.removeItem("bodyAnalysisCompleted");
+      }
+
+      // 모든 MediaPipe 인스턴스 정리 (싱글톤)
+      cleanupMediaPipe();
+
+      // 1초 후 가비지 컬렉션 힌트
+      setTimeout(() => {
+        if (window.gc) window.gc();
+      }, 1000);
+    };
+  }, []);
 
   // 🔥 수정된 Pose 모델 초기화 (소켓 연결 제거)
   useEffect(() => {
@@ -644,9 +730,7 @@ const Measurement: React.FC = () => {
     };
 
     initPose();
-
-    // 🔥 소켓 연결 관련 코드 제거됨
-  }, [videoReady, handlePoseResults]);
+  }, [videoReady, handlePoseResults, startCamera]);
 
   // 체형 분석 시작 함수 (수동 시작용)
   const startAnalysis = (): void => {

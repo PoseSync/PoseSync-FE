@@ -6,6 +6,7 @@ import PoseDifferenceVisualizer from "./PoseDifferenceVisualizer";
 import { useMediaPipe } from "../../hooks/useMediaPipe";
 import { useSocket } from "../../hooks/useSocket";
 import { Landmark } from "../../types";
+import { cleanupMediaPipe } from "../../utils/mediaPipeSingleton";
 
 interface PoseDetectorProps {
   phoneNumber: string;
@@ -35,6 +36,7 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
   const [similarity, setSimilarity] = useState<number>(0);
   const [warningMessage, setWarningMessage] = useState<string>("");
   const [hasDisconnected, setHasDisconnected] = useState<boolean>(false); // 연결 해제 상태 추적
+  const [mediaLoading, setMediaLoading] = useState<boolean>(true);
 
   // 플래그 상수 (상태 변수가 아닌 상수로 정의하여 불필요한 경고 제거)
   const showFace = false;
@@ -47,6 +49,7 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
 
   // 컨테이너 참조
   const containerRef = useRef<HTMLDivElement>(null);
+  const errorMessageRef = useRef<string>("");
 
   // 비디오 요소 설정 콜백
   const handleVideoElementReady = useCallback(
@@ -57,13 +60,24 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
     []
   );
 
+  // MediaPipe 초기화 전 추가 지연
+  useEffect(() => {
+    if (videoElement) {
+      setMediaLoading(true);
+      const timer = setTimeout(() => {
+        setMediaLoading(false);
+      }, 1000);
+
+      return () => clearTimeout(timer);
+    }
+  }, [videoElement]);
+
   // MediaPipe 훅 사용 (더 관대한 설정으로 안정성 확보)
   const {
     isLoading: mediaPipeLoading,
     rawLandmarks,
     error: mediaPipeError,
-  } = useMediaPipe(videoElement, {
-    modelComplexity: 1,
+  } = useMediaPipe(videoElement && !mediaLoading ? videoElement : null, {
     smoothLandmarks: true,
     minDetectionConfidence: 0.5, // 기존 0.6에서 0.5로 낮춤
     minTrackingConfidence: 0.3, // 기존 0.5에서 0.3으로 낮춤
@@ -87,7 +101,11 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
   useEffect(() => {
     if (mediaPipeError) {
       console.error("MediaPipe 오류:", mediaPipeError);
+      errorMessageRef.current = mediaPipeError.message;
       onFeedback(`포즈 감지 초기화 오류: ${mediaPipeError.message}`);
+
+      // MediaPipe 인스턴스 정리 후 재시도
+      cleanupMediaPipe();
     }
   }, [mediaPipeError, onFeedback]);
 
@@ -95,10 +113,19 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
   useEffect(() => {
     if (rawLandmarks.length > 0) {
       console.log("랜드마크 감지됨:", rawLandmarks.length, "개");
-    } else if (!mediaPipeLoading && videoElement) {
+    } else if (!mediaPipeLoading && videoElement && !mediaLoading) {
       console.log("랜드마크 감지되지 않음");
     }
-  }, [rawLandmarks.length, mediaPipeLoading, videoElement]);
+  }, [rawLandmarks.length, mediaPipeLoading, videoElement, mediaLoading]);
+
+  // 컴포넌트 언마운트 시 정리
+  useEffect(() => {
+    return () => {
+      // MediaPipe 정리
+      cleanupMediaPipe();
+      console.log("PoseDetector 컴포넌트 언마운트 - MediaPipe 정리됨");
+    };
+  }, []);
 
   // 연결 해제 처리 - shouldDisconnect 상태 변화 감지
   useEffect(() => {
@@ -233,7 +260,7 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
       } else {
         setWarningMessage("");
       }
-    } else if (!mediaPipeLoading && videoElement) {
+    } else if (!mediaPipeLoading && videoElement && !mediaLoading) {
       // MediaPipe가 로딩이 완료되었는데도 랜드마크가 감지되지 않는 경우
       setWarningMessage("포즈를 감지할 수 없습니다. 카메라 앞에 서주세요.");
     }
@@ -268,6 +295,7 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
     onFeedback,
     mediaPipeLoading,
     videoElement,
+    mediaLoading,
   ]);
 
   // 비디오 요소가 준비되면 자동으로 소켓 연결 시도
@@ -345,7 +373,7 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
   return (
     <div ref={containerRef} className="relative w-full h-full">
       {/* MediaPipe 로딩 상태 표시 */}
-      {mediaPipeLoading && (
+      {(mediaPipeLoading || mediaLoading) && (
         <div className="absolute top-4 left-4 bg-blue-500 text-white px-4 py-2 rounded-lg shadow-lg z-10">
           <p className="flex items-center text-sm">
             🔄 포즈 감지 모델 로딩 중...
@@ -357,13 +385,14 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
       {mediaPipeError && (
         <div className="absolute top-4 left-4 bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg z-10">
           <p className="flex items-center text-sm">
-            ❌ 포즈 감지 오류: {mediaPipeError.message}
+            ❌ 포즈 감지 오류:{" "}
+            {errorMessageRef.current || mediaPipeError.message}
           </p>
         </div>
       )}
 
       {/* 경고 메시지 표시 */}
-      {warningMessage && !mediaPipeLoading && (
+      {warningMessage && !mediaPipeLoading && !mediaLoading && (
         <div className="absolute top-4 left-0 right-0 mx-auto w-max bg-orange-500 text-white px-4 py-2 rounded-lg shadow-lg z-10">
           <p className="flex items-center text-sm">⚠️ {warningMessage}</p>
         </div>
@@ -384,21 +413,24 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
           height={videoHeight}
         >
           {/* 원본 랜드마크 시각화 (녹색) */}
-          {videoElement && rawLandmarks.length > 0 && !mediaPipeLoading && (
-            <MediaPipeVisualizer
-              videoElement={videoElement}
-              results={{
-                landmarks: [rawLandmarks],
-                worldLandmarks: [rawLandmarks],
-              }}
-              width={videoWidth}
-              height={videoHeight}
-              showFace={showFace}
-              color="#4ade80" // 밝은 녹색
-              lineWidth={3}
-              pointSize={2}
-            />
-          )}
+          {videoElement &&
+            rawLandmarks.length > 0 &&
+            !mediaPipeLoading &&
+            !mediaLoading && (
+              <MediaPipeVisualizer
+                videoElement={videoElement}
+                results={{
+                  landmarks: [rawLandmarks],
+                  worldLandmarks: [rawLandmarks],
+                }}
+                width={videoWidth}
+                height={videoHeight}
+                showFace={showFace}
+                color="#4ade80" // 밝은 녹색
+                lineWidth={3}
+                pointSize={2}
+              />
+            )}
 
           {/* 서버 처리된 랜드마크 시각화 (파란색) - 연결 해제되지 않았을 때만 표시 */}
           {videoElement &&
@@ -441,7 +473,7 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
             )}
         </WebcamCapture>
 
-        {mediaPipeLoading && (
+        {(mediaPipeLoading || mediaLoading) && (
           <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-70 text-white">
             <div className="text-center">
               <svg
@@ -470,7 +502,7 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
         )}
 
         {/* 화면 우측 상단에 정확도 표시 - 연결 해제되지 않았을 때만 표시 */}
-        {!hasDisconnected && !mediaPipeLoading && (
+        {!hasDisconnected && !mediaPipeLoading && !mediaLoading && (
           <div className="absolute top-3 right-3 bg-black bg-opacity-70 rounded-lg p-3 text-white">
             <div className="flex items-center">
               <span className="mr-2">정확도:</span>

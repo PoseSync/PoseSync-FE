@@ -4,8 +4,8 @@ import Gnb from "../../components/gnb/Gnb";
 import UnionImg from "../../assets/images/items/Union.png";
 import LineImg from "../../assets/images/items/line.png";
 import { useUserStore } from "../../store/useUserStore";
-import StartExerciseToast from '../../components/resource/StartExerciseToast';
-import { useLocation, useNavigate } from 'react-router-dom';
+import StartExerciseToast from "../../components/resource/StartExerciseToast";
+import { useLocation, useNavigate } from "react-router-dom";
 
 // 결과 데이터 인터페이스 정의
 interface AnalysisResult {
@@ -401,7 +401,7 @@ const MeasurementResults: React.FC = () => {
             </HipJointResultText>
           </HipJointContainer>
           <ToastPositioner>
-            <StartExerciseToast onStart={() => navigate('/startexercises')} />
+            <StartExerciseToast onStart={() => navigate("/startexercises")} />
           </ToastPositioner>
         </MainBox>
       </MainContainer>
