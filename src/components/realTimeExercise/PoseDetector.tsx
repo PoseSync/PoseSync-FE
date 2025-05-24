@@ -43,9 +43,9 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
   const showGuideline = true;
   const showDifferences = true;
 
-  // VideoContainer 크기에 맞게 비디오 크기 조정
-  const videoWidth = 2300;
-  const videoHeight = 1683;
+  // VideoContainer 크기에 맞게 비디오 크기 조정 - 1920x1080으로 수정
+  const videoWidth = 1920;
+  const videoHeight = 1080;
 
   // 컨테이너 참조
   const containerRef = useRef<HTMLDivElement>(null);
@@ -127,6 +127,47 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
     };
   }, []);
 
+  // 전신 가시성 체크 함수 - 안정화된 버전
+  const checkFullBodyVisibility = useCallback((landmarks: Landmark[]) => {
+    // 필수 랜드마크 ID (하체 관절)
+    const requiredJoints = [
+      23,
+      24, // 왼쪽/오른쪽 고관절
+      25,
+      26, // 왼쪽/오른쪽 무릎
+      27,
+      28, // 왼쪽/오른쪽 발목
+    ];
+
+    // 모든 필수 관절의 가시성 확인
+    const allVisible = requiredJoints.every((id) => {
+      const landmark = landmarks.find((lm) => lm.id === id);
+      return (
+        landmark &&
+        landmark.visibility !== undefined &&
+        landmark.visibility > 0.5
+      );
+    });
+
+    // 하체 길이가 충분히 보이는지 확인
+    if (allVisible) {
+      const hip = landmarks.find((lm) => lm.id === 24); // 오른쪽 고관절
+      const ankle = landmarks.find((lm) => lm.id === 28); // 오른쪽 발목
+      const shoulder = landmarks.find((lm) => lm.id === 12); // 오른쪽 어깨
+
+      if (hip && ankle && shoulder) {
+        const upperBodyLength = Math.abs(hip.y - shoulder.y);
+        const lowerBodyLength = Math.abs(ankle.y - hip.y);
+        const lowerBodyRatio = lowerBodyLength / upperBodyLength;
+
+        // 하체가 상체의 최소 70% 길이는 되어야 함
+        return allVisible && lowerBodyRatio >= 0.7;
+      }
+    }
+
+    return allVisible;
+  }, []);
+
   // 연결 해제 처리 - shouldDisconnect 상태 변화 감지
   useEffect(() => {
     // shouldDisconnect가 true이고, 이전에 연결이 되어있었으며, 아직 연결 해제하지 않았을 때
@@ -194,49 +235,11 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
     []
   );
 
-  // 전신 가시성 체크 함수 - 타입 오류 수정: 의존성 배열에서 함수들 제거
-  const checkFullBodyVisibility = useCallback((landmarks: Landmark[]) => {
-    // 필수 랜드마크 ID (하체 관절)
-    const requiredJoints = [
-      23,
-      24, // 왼쪽/오른쪽 고관절
-      25,
-      26, // 왼쪽/오른쪽 무릎
-      27,
-      28, // 왼쪽/오른쪽 발목
-    ];
-
-    // 모든 필수 관절의 가시성 확인
-    const allVisible = requiredJoints.every((id) => {
-      const landmark = landmarks.find((lm) => lm.id === id);
-      return (
-        landmark &&
-        landmark.visibility !== undefined &&
-        landmark.visibility > 0.5
-      );
-    });
-
-    // 하체 길이가 충분히 보이는지 확인
-    if (allVisible) {
-      const hip = landmarks.find((lm) => lm.id === 24); // 오른쪽 고관절
-      const ankle = landmarks.find((lm) => lm.id === 28); // 오른쪽 발목
-      const shoulder = landmarks.find((lm) => lm.id === 12); // 오른쪽 어깨
-
-      if (hip && ankle && shoulder) {
-        const upperBodyLength = Math.abs(hip.y - shoulder.y);
-        const lowerBodyLength = Math.abs(ankle.y - hip.y);
-        const lowerBodyRatio = lowerBodyLength / upperBodyLength;
-
-        // 하체가 상체의 최소 70% 길이는 되어야 함
-        return allVisible && lowerBodyRatio >= 0.7;
-      }
-    }
-
-    return allVisible;
-  }, []);
-
-  // 자세 유사도 계산
+  // 자세 유사도 계산 - 안정화된 버전
   useEffect(() => {
+    // 컴포넌트가 마운트 상태인지 확인
+    if (!containerRef.current) return;
+
     // rawLandmarks가 있을 때만 전신 가시성 확인
     if (rawLandmarks.length > 0) {
       console.log("현재 감지된 랜드마크 수:", rawLandmarks.length);
@@ -290,12 +293,12 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
   }, [
     rawLandmarks,
     processedResult,
-    checkFullBodyVisibility,
     onCountUpdate,
     onFeedback,
     mediaPipeLoading,
     videoElement,
     mediaLoading,
+    checkFullBodyVisibility, // 이제 useCallback으로 안정화됨
   ]);
 
   // 비디오 요소가 준비되면 자동으로 소켓 연결 시도

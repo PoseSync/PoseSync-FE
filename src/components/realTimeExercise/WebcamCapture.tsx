@@ -11,8 +11,8 @@ interface WebcamCaptureProps {
 
 const WebcamCapture = ({
   onVideoElementReady,
-  width = 2300,
-  height = 1683,
+  width = 1920,
+  height = 1080,
   children,
   videoElement: externalVideoElement,
   hidden = false,
@@ -100,15 +100,14 @@ const WebcamCapture = ({
       try {
         console.log("카메라 스트림 요청 중...", selectedCamera);
 
-        // 비율에 맞는 해상도 요청
-        // 2300:1683 비율에 맞춰 적절한 해상도 설정
+        // props로 받은 해상도 사용 (1920x1080)
         const constraints: MediaStreamConstraints = {
           video: {
             deviceId: { exact: selectedCamera },
-            width: { ideal: 1920 },
-            height: { ideal: 1400 },
-            // 비율을 약 1.37:1로 설정하여 2300:1683과 비슷하게 유지
-            aspectRatio: { ideal: 1.37 },
+            width: { ideal: width },
+            height: { ideal: height },
+            // 16:9 비율 (1920:1080)
+            aspectRatio: { ideal: 16 / 9 },
           },
           audio: false,
         };

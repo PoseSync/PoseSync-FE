@@ -3,6 +3,8 @@ import { PrimaryButton } from "../../components/buttons/PrimaryButton";
 import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
 import { useUserStore } from "../../store/useUserStore";
+import { useMediaPipe } from "../../hooks/useMediaPipe";
+import { cleanupMediaPipe } from "../../utils/mediaPipeSingleton";
 import axios from "axios";
 
 // 타입 선언
@@ -12,17 +14,6 @@ interface Landmark {
   y: number;
   z: number;
   visibility?: number;
-}
-
-interface PoseLandmark {
-  x: number;
-  y: number;
-  z: number;
-  visibility?: number;
-}
-
-interface PoseResults {
-  poseLandmarks?: PoseLandmark[];
 }
 
 interface AnalysisResult {
@@ -41,61 +32,6 @@ interface AnalysisResponse {
   success: boolean;
   result: AnalysisResult;
 }
-
-// MediaPipe 관련 타입 선언
-interface Pose {
-  setOptions(options: PoseOptions): void;
-  onResults(callback: (results: PoseResults) => void): void;
-  send(data: { image: HTMLVideoElement }): Promise<void>;
-  close(): void;
-}
-
-interface PoseOptions {
-  modelComplexity: number;
-  smoothLandmarks: boolean;
-  enableSegmentation: boolean;
-  smoothSegmentation: boolean;
-  minDetectionConfidence: number;
-  minTrackingConfidence: number;
-}
-
-// MediaPipe Module 타입 정의
-interface MediaPipeModule {
-  arguments_?: string[];
-  [key: string]: unknown;
-}
-
-// Window 타입 확장
-declare global {
-  interface Window {
-    Pose: {
-      new (options?: { locateFile: (file: string) => string }): Pose;
-    };
-    Module: MediaPipeModule;
-    gc?: () => void;
-  }
-}
-
-// MediaPipe 정리 함수 (임시 구현)
-const cleanupMediaPipe = (): void => {
-  try {
-    // Module 객체 정리
-    if (window.Module) {
-      const moduleBackup: MediaPipeModule = {
-        arguments_: window.Module.arguments_,
-      };
-      window.Module = moduleBackup;
-      console.log("MediaPipe Module 정리 완료");
-    }
-
-    // 가비지 컬렉션 힌트
-    if (window.gc) {
-      window.gc();
-    }
-  } catch (error) {
-    console.error("MediaPipe 정리 중 오류:", error);
-  }
-};
 
 // 컴포넌트 스타일들
 const FullScreen = styled.div`
@@ -262,9 +198,10 @@ const Measurement: React.FC = () => {
   const height = useUserStore((state) => state.height);
   const phoneNumber = useUserStore((state) => state.phoneNumber);
 
-  const [videoReady, setVideoReady] = useState<boolean>(false);
+  const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(
+    null
+  );
   const [analyzing, setAnalyzing] = useState<boolean>(false);
-  const [landmarks, setLandmarks] = useState<Landmark[]>([]);
   const [fullBodyDetected, setFullBodyDetected] = useState<boolean>(false);
   const [countdown, setCountdown] = useState<number | null>(null);
   const [bodyDetectionState, setBodyDetectionState] =
@@ -277,8 +214,6 @@ const Measurement: React.FC = () => {
   const [collectionProgress, setCollectionProgress] = useState<number>(0);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const poseRef = useRef<Pose | null>(null);
-  const animationRef = useRef<number | null>(null);
   const countdownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fullBodyDetectionTimerRef = useRef<ReturnType<
     typeof setTimeout
@@ -294,6 +229,26 @@ const Measurement: React.FC = () => {
 
   // 📌 프레임 수집 설정
   const REQUIRED_FRAMES = 50;
+
+  // Tasks API MediaPipe 훅 사용
+  const {
+    isLoading: mediaPipeLoading,
+    rawLandmarks,
+    error: mediaPipeError,
+  } = useMediaPipe(videoElement, {
+    smoothLandmarks: true,
+    minDetectionConfidence: 0.5,
+    minTrackingConfidence: 0.3,
+  });
+
+  // 비디오 요소 설정 콜백
+  const handleVideoElementReady = useCallback(
+    (element: HTMLVideoElement | null) => {
+      console.log("비디오 요소 준비:", element ? "성공" : "실패");
+      setVideoElement(element);
+    },
+    []
+  );
 
   // 초기 상태로 리셋
   const resetToInitialState = useCallback((): void => {
@@ -378,7 +333,7 @@ const Measurement: React.FC = () => {
     });
   }, []);
 
-  // 🔥 수정된 HTTP API를 사용한 서버 전송 함수 (소켓 제거)
+  // 🔥 HTTP API를 사용한 서버 전송 함수
   const sendFramesToServer = useCallback(
     async (frames: Landmark[][]) => {
       analysingRef.current = true;
@@ -472,65 +427,117 @@ const Measurement: React.FC = () => {
     }, 1000);
   }, [startFrameCollection]);
 
-  // 🔥 수정된 Pose 결과 처리 콜백 (의존성 배열 수정)
-  const handlePoseResults = useCallback(
-    (results: PoseResults): void => {
-      if (!results || !results.poseLandmarks) return;
+  // 카메라 초기화
+  useEffect(() => {
+    let stream: MediaStream | null = null;
 
-      // 랜드마크 데이터 형식 맞추기
-      const formattedLandmarks: Landmark[] = results.poseLandmarks.map(
-        (landmark, index) => ({
-          id: index,
-          x: landmark.x,
-          y: landmark.y,
-          z: landmark.z,
-          visibility: landmark.visibility,
-        })
-      );
+    async function setupCamera(): Promise<void> {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { width: 1280, height: 720 },
+          audio: false,
+        });
 
-      // 랜드마크 상태 업데이트
-      setLandmarks(formattedLandmarks);
-
-      // 🔥 가시성 높은 랜드마크 개수 계산 (항상 실행 - 프레임 수집 중에도)
-      const visibleCount = formattedLandmarks.filter(
-        (lm) => lm.visibility !== undefined && lm.visibility > 0.5
-      ).length;
-      setVisibleLandmarksCount(visibleCount);
-
-      // 🔥 로그 출력 제한 (1초에 한 번만)
-      const now = Date.now();
-      if (now - logThrottleRef.current > 1000) {
-        console.log(`감지된 랜드마크: ${visibleCount}/33 (가시성 > 0.5)`);
-        logThrottleRef.current = now;
-      }
-
-      // 📌 프레임 수집 중일 때 버퍼에 추가
-      setFrameBuffer((prevBuffer) => {
-        // 현재 수집 상태와 버퍼 길이를 함수 내부에서 확인
-        if (isCollectingFrames && prevBuffer.length < REQUIRED_FRAMES) {
-          const newBuffer = [...prevBuffer, formattedLandmarks];
-          const progress = (newBuffer.length / REQUIRED_FRAMES) * 100;
-          setCollectionProgress(progress);
-
-          // 프레임 수집 완료
-          if (newBuffer.length === REQUIRED_FRAMES) {
-            console.log(`✅ ${REQUIRED_FRAMES}프레임 수집 완료! 분석 시작...`);
-            sendFramesToServer(newBuffer);
-            setIsCollectingFrames(false);
-            setCollectionProgress(0);
-            return [];
-          }
-
-          return newBuffer;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.onloadedmetadata = () => {
+            if (videoRef.current) {
+              videoRef.current
+                .play()
+                .then(() => {
+                  console.log("카메라 준비 완료");
+                  handleVideoElementReady(videoRef.current);
+                })
+                .catch((err) => {
+                  console.error("비디오 재생 실패:", err);
+                });
+            }
+          };
         }
-        return prevBuffer; // 수집 중이 아니면 기존 버퍼 유지
-      });
+      } catch (error) {
+        console.error("카메라 접근 에러:", error);
+      }
+    }
 
-      // 프레임 수집 중일 때는 다른 로직 실행 안함
-      if (isCollectingFrames) {
-        return;
+    setupCamera();
+
+    return () => {
+      if (countdownTimerRef.current) {
+        clearInterval(countdownTimerRef.current);
+        countdownTimerRef.current = null;
       }
 
+      if (fullBodyDetectionTimerRef.current) {
+        clearTimeout(fullBodyDetectionTimerRef.current);
+        fullBodyDetectionTimerRef.current = null;
+      }
+
+      if (analysisTimeoutRef.current) {
+        clearTimeout(analysisTimeoutRef.current);
+        analysisTimeoutRef.current = null;
+      }
+
+      if (stream) {
+        stream.getTracks().forEach((track) => track.stop());
+      }
+
+      // 체형 분석 중단 시 완료 상태 제거
+      if (analysingRef.current === false && !analysisCompletedRef.current) {
+        sessionStorage.removeItem("bodyAnalysisCompleted");
+      }
+
+      // MediaPipe 정리
+      cleanupMediaPipe();
+    };
+  }, [handleVideoElementReady]);
+
+  // MediaPipe 훅에서 받은 랜드마크 처리
+  useEffect(() => {
+    if (!rawLandmarks || rawLandmarks.length === 0) return;
+
+    // 🔥 가시성 높은 랜드마크 개수 계산
+    const visibleCount = rawLandmarks.filter(
+      (lm) => lm.visibility !== undefined && lm.visibility > 0.5
+    ).length;
+    setVisibleLandmarksCount(visibleCount);
+
+    // 🔥 로그 출력 제한 (1초에 한 번만)
+    const now = Date.now();
+    if (now - logThrottleRef.current > 1000) {
+      console.log(`감지된 랜드마크: ${visibleCount}/33 (가시성 > 0.5)`);
+      logThrottleRef.current = now;
+    }
+
+    // rawLandmarks를 Landmark[] 타입으로 변환
+    const formattedLandmarks: Landmark[] = rawLandmarks.map((lm) => ({
+      id: lm.id,
+      x: lm.x,
+      y: lm.y,
+      z: lm.z,
+      visibility: lm.visibility,
+    }));
+
+    // 📌 프레임 수집 중일 때 버퍼에 추가
+    if (isCollectingFrames && frameBuffer.length < REQUIRED_FRAMES) {
+      const newBuffer = [...frameBuffer, formattedLandmarks];
+      setFrameBuffer(newBuffer);
+
+      const progress = (newBuffer.length / REQUIRED_FRAMES) * 100;
+      setCollectionProgress(progress);
+
+      // 프레임 수집 완료
+      if (newBuffer.length === REQUIRED_FRAMES) {
+        console.log(`✅ ${REQUIRED_FRAMES}프레임 수집 완료! 분석 시작...`);
+        sendFramesToServer(newBuffer);
+        setIsCollectingFrames(false);
+        setCollectionProgress(0);
+        setFrameBuffer([]);
+      }
+      return;
+    }
+
+    // 프레임 수집 중이 아닐 때만 전신 감지 로직 실행
+    if (!isCollectingFrames) {
       // 전신 감지 여부 확인
       const bodyVisible = isFullBodyVisible(formattedLandmarks);
 
@@ -563,178 +570,23 @@ const Measurement: React.FC = () => {
         }
         setFullBodyDetected(false);
       }
-    },
-    [
-      fullBodyDetected,
-      analyzing,
-      countdown,
-      isCollectingFrames,
-      REQUIRED_FRAMES,
-      sendFramesToServer,
-      isFullBodyVisible,
-      startCountdown,
-    ]
-  );
-
-  // 🔥 수정된 카메라 프레임 전송 루프 (프레임 처리 최적화)
-  const startCamera = useCallback((): void => {
-    if (!videoRef.current || !poseRef.current) return;
-
-    const sendFrame = async (): Promise<void> => {
-      if (videoRef.current && videoRef.current.readyState >= 2) {
-        // 🔥 분석 중이 아닐 때만 MediaPipe로 프레임 전송 (성능 최적화)
-        if (!analyzing) {
-          await poseRef.current?.send({ image: videoRef.current });
-        }
-      }
-
-      animationRef.current = requestAnimationFrame(sendFrame);
-    };
-
-    sendFrame();
-  }, [analyzing]);
-
-  // 카메라 초기화
-  useEffect(() => {
-    let stream: MediaStream | null = null;
-
-    async function setupCamera(): Promise<void> {
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: { width: 1280, height: 720 },
-          audio: false,
-        });
-
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          videoRef.current.onloadedmetadata = () => {
-            if (videoRef.current) {
-              videoRef.current
-                .play()
-                .then(() => {
-                  console.log("카메라 준비 완료");
-                  setVideoReady(true);
-                })
-                .catch((err) => {
-                  console.error("비디오 재생 실패:", err);
-                });
-            }
-          };
-        }
-      } catch (error) {
-        console.error("카메라 접근 에러:", error);
-      }
     }
-
-    setupCamera();
-
-    return () => {
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
-        animationRef.current = null;
-      }
-
-      if (countdownTimerRef.current) {
-        clearInterval(countdownTimerRef.current);
-        countdownTimerRef.current = null;
-      }
-
-      if (fullBodyDetectionTimerRef.current) {
-        clearTimeout(fullBodyDetectionTimerRef.current);
-        fullBodyDetectionTimerRef.current = null;
-      }
-
-      if (analysisTimeoutRef.current) {
-        clearTimeout(analysisTimeoutRef.current);
-        analysisTimeoutRef.current = null;
-      }
-
-      if (stream) {
-        stream.getTracks().forEach((track) => track.stop());
-      }
-
-      // MediaPipe 인스턴스 정리
-      if (poseRef.current) {
-        try {
-          poseRef.current.close();
-          poseRef.current = null;
-          console.log("Pose 인스턴스 정리 완료");
-        } catch (e) {
-          console.error("Pose 인스턴스 정리 중 오류:", e);
-        }
-      }
-
-      // WASM 모듈 상태 초기화 (전역 변수 정리)
-      if (window.Module) {
-        try {
-          // 필요한 속성만 유지
-          const moduleBackup: MediaPipeModule = {
-            arguments_: window.Module.arguments_,
-          };
-
-          // Module 객체 초기화
-          window.Module = moduleBackup;
-          console.log("Module 객체 정리 완료");
-        } catch (e) {
-          console.error("Module 객체 정리 중 오류:", e);
-        }
-      }
-
-      // 체형 분석 중단 시 완료 상태 제거
-      if (analysingRef.current === false && !analysisCompletedRef.current) {
-        sessionStorage.removeItem("bodyAnalysisCompleted");
-      }
-
-      // 모든 MediaPipe 인스턴스 정리 (싱글톤)
-      cleanupMediaPipe();
-
-      // 1초 후 가비지 컬렉션 힌트
-      setTimeout(() => {
-        if (window.gc) window.gc();
-      }, 1000);
-    };
-  }, []);
-
-  // 🔥 수정된 Pose 모델 초기화 (소켓 연결 제거)
-  useEffect(() => {
-    if (!videoReady) return;
-
-    const initPose = async (): Promise<void> => {
-      if (typeof window.Pose !== "undefined") {
-        try {
-          poseRef.current = new window.Pose({
-            locateFile: (file: string) => {
-              return `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`;
-            },
-          });
-
-          poseRef.current.setOptions({
-            modelComplexity: 1,
-            smoothLandmarks: true,
-            enableSegmentation: false,
-            smoothSegmentation: false,
-            minDetectionConfidence: 0.5,
-            minTrackingConfidence: 0.5,
-          });
-
-          poseRef.current.onResults(handlePoseResults);
-          startCamera();
-
-          console.log("MediaPipe Pose 모델 초기화 완료");
-        } catch (error) {
-          console.error("Pose 모델 초기화 실패:", error);
-        }
-      } else {
-        setTimeout(initPose, 100);
-      }
-    };
-
-    initPose();
-  }, [videoReady, handlePoseResults, startCamera]);
+  }, [
+    rawLandmarks,
+    fullBodyDetected,
+    analyzing,
+    countdown,
+    isCollectingFrames,
+    frameBuffer,
+    REQUIRED_FRAMES,
+    sendFramesToServer,
+    isFullBodyVisible,
+    startCountdown,
+  ]);
 
   // 체형 분석 시작 함수 (수동 시작용)
   const startAnalysis = (): void => {
-    if (!landmarks.length) {
+    if (!rawLandmarks || rawLandmarks.length === 0) {
       console.log("랜드마크가 감지되지 않습니다.");
       return;
     }
@@ -788,6 +640,25 @@ const Measurement: React.FC = () => {
           )}
         </DebugOverlay>
 
+        {/* MediaPipe 오류 상태 표시 */}
+        {mediaPipeError && (
+          <div
+            style={{
+              position: "absolute",
+              top: "50%",
+              left: "50%",
+              transform: "translate(-50%, -50%)",
+              background: "rgba(255, 0, 0, 0.8)",
+              color: "white",
+              padding: "20px",
+              borderRadius: "10px",
+              zIndex: 100,
+            }}
+          >
+            MediaPipe 오류: {mediaPipeError.message}
+          </div>
+        )}
+
         {/* 카운트다운 오버레이 */}
         {countdown !== null && (
           <CountdownOverlay>
@@ -831,6 +702,17 @@ const Measurement: React.FC = () => {
                 }}
               />
             </LottieContainer>
+          </AnalysisOverlay>
+        )}
+
+        {/* MediaPipe 로딩 중 오버레이 */}
+        {mediaPipeLoading && (
+          <AnalysisOverlay>
+            <div
+              style={{ color: "white", fontSize: "48px", textAlign: "center" }}
+            >
+              포즈 감지 모델 로딩 중...
+            </div>
           </AnalysisOverlay>
         )}
       </CameraBox>

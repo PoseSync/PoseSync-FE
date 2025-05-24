@@ -64,9 +64,9 @@ const MediaPipeVisualizer: React.FC<MediaPipeVisualizerProps> = ({
     if (!ctx) return;
 
     try {
-      // 캔버스 크기 설정 - 비디오 크기에 맞춤
-      canvas.width = videoElement.videoWidth || width;
-      canvas.height = videoElement.videoHeight || height;
+      // 캔버스 크기를 화면 표시 크기와 동일하게 설정
+      canvas.width = width; // 2300 (화면 표시 크기)
+      canvas.height = height; // 1683 (화면 표시 크기)
 
       // 캔버스 초기화
       ctx.clearRect(0, 0, canvas.width, canvas.height);

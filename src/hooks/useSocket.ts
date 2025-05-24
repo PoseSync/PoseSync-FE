@@ -34,6 +34,9 @@ interface LatencyStats {
 export const useSocket = (options: UseSocketOptions) => {
   const { phoneNumber, exerciseType, autoConnect = false } = options;
 
+  // 전화번호에서 숫자만 추출
+  const numericPhoneNumber = phoneNumber.replace(/[^0-9]/g, "");
+
   // 상태
   const [socket, setSocket] = useState<Socket | null>(null);
   const [isConnected, setIsConnected] = useState<boolean>(false);
@@ -42,7 +45,7 @@ export const useSocket = (options: UseSocketOptions) => {
     useState<ProcessedResult | null>(null);
   const [error, setError] = useState<Error | null>(null);
   const [connectionAttempts, setConnectionAttempts] = useState<number>(0);
-  const [serverUrl, setServerUrl] = useState<string>(getServerUrl());
+  const [serverUrl] = useState<string>(getServerUrl()); // useState로 고정
   const [latencyStats, setLatencyStats] = useState<LatencyStats>({
     count: 0,
     min: 0,
@@ -112,9 +115,11 @@ export const useSocket = (options: UseSocketOptions) => {
       setIsConnecting(false);
       setError(null);
 
-      // 연결 이벤트 전송
-      console.log("📤 connection 이벤트 전송:", { phoneNumber });
-      newSocket.emit("connection", { phoneNumber });
+      // 연결 이벤트 전송 (숫자만 추출한 전화번호 사용)
+      console.log("📤 connection 이벤트 전송:", {
+        phoneNumber: numericPhoneNumber,
+      });
+      newSocket.emit("connection", { phoneNumber: numericPhoneNumber });
 
       // 타임아웃 클리어
       if (timeoutRef.current) {
@@ -255,7 +260,7 @@ export const useSocket = (options: UseSocketOptions) => {
       // 소켓 정리
       if (newSocket.connected) {
         console.log("🔌 소켓 연결 해제 중...");
-        newSocket.emit("disconnection", { phoneNumber });
+        newSocket.emit("disconnection", { phoneNumber: numericPhoneNumber });
         newSocket.disconnect();
       }
 
@@ -263,7 +268,7 @@ export const useSocket = (options: UseSocketOptions) => {
       newSocket.removeAllListeners();
       newSocket.close();
     };
-  }, [phoneNumber, autoConnect, serverUrl, calculateLatencyStats]);
+  }, [numericPhoneNumber, autoConnect, serverUrl, calculateLatencyStats]);
 
   // 레이턴시 통계를 주기적으로 콘솔에 출력
   useEffect(() => {
@@ -286,7 +291,8 @@ export const useSocket = (options: UseSocketOptions) => {
 
   // 서버 URL 변경 함수 (수동 지정이 필요한 경우)
   const setCustomServerUrl = useCallback((url: string) => {
-    setServerUrl(url);
+    console.log("서버 URL 변경:", url);
+    // serverUrl은 이제 상태로 관리되지 않으므로 이 함수는 더 이상 사용되지 않음
   }, []);
 
   // 연결 함수
@@ -346,11 +352,11 @@ export const useSocket = (options: UseSocketOptions) => {
       timeoutRef.current = null;
     }
 
-    // 연결 해제 이벤트 전송
+    // 연결 해제 이벤트 전송 (숫자만 추출한 전화번호 사용)
     console.log("🔌 연결 해제 중...");
-    socket.emit("disconnection", { phoneNumber });
+    socket.emit("disconnection", { phoneNumber: numericPhoneNumber });
     socket.disconnect();
-  }, [socket, phoneNumber]);
+  }, [socket, numericPhoneNumber]);
 
   // 클라이언트 연결 해제 함수 (수정된 부분)
   const disconnectClient = useCallback(() => {
@@ -367,9 +373,9 @@ export const useSocket = (options: UseSocketOptions) => {
     console.log("🔴 disconnect_client 패킷 전송 중...");
     console.log("현재 운동 횟수:", currentCountRef.current);
 
-    // 서버에 disconnect_client 패킷 전송 (현재 운동 횟수와 함께)
+    // 서버에 disconnect_client 패킷 전송 (현재 운동 횟수와 함께, 숫자만 추출한 전화번호 사용)
     socket.emit("disconnect_client", {
-      phoneNumber,
+      phoneNumber: numericPhoneNumber,
       count: currentCountRef.current,
     });
 
@@ -377,7 +383,7 @@ export const useSocket = (options: UseSocketOptions) => {
 
     // 실제 연결을 끊는다
     socket.disconnect();
-  }, [socket, phoneNumber]);
+  }, [socket, numericPhoneNumber]);
 
   // 포즈 데이터 전송 함수
   const sendPose = useCallback(
@@ -402,9 +408,9 @@ export const useSocket = (options: UseSocketOptions) => {
           startTime: performance.now(),
         };
 
-        // 데이터 객체 생성
+        // 데이터 객체 생성 (숫자만 추출한 전화번호 사용)
         const data = {
-          phoneNumber,
+          phoneNumber: numericPhoneNumber,
           exerciseType,
           landmarks,
           requestId: finalRequestId,
@@ -419,7 +425,7 @@ export const useSocket = (options: UseSocketOptions) => {
         return false;
       }
     },
-    [socket, isConnected, phoneNumber, exerciseType]
+    [socket, isConnected, numericPhoneNumber, exerciseType]
   );
 
   return {
@@ -437,5 +443,3 @@ export const useSocket = (options: UseSocketOptions) => {
     latencyStats,
   };
 };
-
-export default useSocket;
