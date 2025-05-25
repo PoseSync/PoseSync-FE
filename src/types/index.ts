@@ -49,15 +49,15 @@ export interface SocketData {
   landmarks: TransformedLandmark[];
 }
 
-// 기존 ProcessedResult 인터페이스에 requestId 추가
+// ProcessedResult 인터페이스에 count 필드 추가
 export interface ProcessedResult {
-  visualizationLandmarks: TransformedLandmark[];      // 서버 역변환된 시각화용 랜드마크
-  exerciseCount?: number;                              // 운동 횟수
-  similarity?: number;                                 // 자세 유사도
-  feedback?: string;                                   // 피드백 메시지
-  requestId?: string;                                  // 요청 ID
+  visualizationLandmarks: TransformedLandmark[]; // 서버 역변환된 시각화용 랜드마크
+  exerciseCount?: number; // 운동 횟수 (기존 필드)
+  count?: number; // 🎯 서버에서 보내는 실제 운동 횟수 필드
+  similarity?: number; // 자세 유사도
+  feedback?: string; // 피드백 메시지
+  requestId?: string; // 요청 ID
 }
-
 
 // MediaPipeLandmark 인터페이스 확인/추가
 export interface MediaPipeLandmark {

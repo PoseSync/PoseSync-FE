@@ -161,14 +161,15 @@ export const useSocket = (options: UseSocketOptions) => {
       }
     });
 
-    // 서버에서 결과 수신
+    // 서버에서 결과 수신 - 🎯 여기가 핵심 수정 부분!
     newSocket.on(
       "result",
       (
         data: ProcessedResult & {
           requestId?: string;
           serverProcessingTime?: number;
-          exerciseCount?: number; // 운동 횟수 추가
+          exerciseCount?: number;
+          count?: number; // ✅ 서버에서 보내는 실제 필드
         }
       ) => {
         if (!mountedRef.current) return;
@@ -210,9 +211,13 @@ export const useSocket = (options: UseSocketOptions) => {
           }
         }
 
-        // 운동 횟수 업데이트
-        if (data.exerciseCount !== undefined) {
-          currentCountRef.current = data.exerciseCount;
+        // 🎯 운동 횟수 업데이트 - 서버의 count 필드 사용
+        if (data.count !== undefined) {
+          console.log(`🏋️ 서버에서 받은 운동 횟수: ${data.count}`);
+          currentCountRef.current = data.count;
+
+          // 기존 코드 호환성을 위해 exerciseCount로도 복사
+          data.exerciseCount = data.count;
         }
 
         setProcessedResult(data);
