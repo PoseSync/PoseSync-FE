@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import styled from "styled-components";
+import { useLocation } from "react-router-dom";
 import Gnb from "../../components/gnb/Gnb";
 import PoseDetector from "../../components/realTimeExercise/PoseDetector";
 import { useNavigate } from "react-router-dom";
 import { useExerciseStore } from "../../store/useExerciseStore";
 import { useUserStore } from "../../store/useUserStore";
+import { exercises, Exercise } from "../../data/exercises";
 
 const FullScreen = styled.div`
   width: 3840px;
@@ -259,9 +261,15 @@ const BackButton = styled.button`
 
 const RealTimeExercisePage: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const exercise = useExerciseStore((state) => state.selectedExercise);
   const sets = useExerciseStore((state) => state.sets);
+  const setSetsGlobal = useExerciseStore((state) => state.setSets);
+  const setSelectedExercise = useExerciseStore(
+    (state) => state.setSelectedExercise
+  );
   const phoneNumber = useUserStore((state) => state.phoneNumber);
+  const setUserPhoneNumber = useUserStore((state) => state.setPhoneNumber);
   const videoContainerRef = useRef<HTMLDivElement>(null); // 비디오 컨테이너 참조 추가
 
   // 테스트용 전화번호 설정
@@ -277,6 +285,76 @@ const RealTimeExercisePage: React.FC = () => {
   const visualizationMode = "2d";
   // 전체화면 상태
   const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // 서버 변수명과 운동 이름 매핑
+  const exerciseTypeMapping: Record<string, string> = {
+    squat: "바벨 스쿼트",
+    lunge: "런지",
+    shoulder_press: "숄더 프레스",
+    dumbbell_shoulder_press: "숄더 프레스",
+    side_lateral_raise: "사이드 레터럴 레이즈",
+    deadlift: "데드 리프트",
+    curl: "덤벨/바벨 컬",
+    barbell_row: "바벨로우",
+    dumbbell_row: "덤벨로우",
+    front_raise: "프론트레이즈",
+    incline_bench_press: "인클라인 벤치프레스",
+  };
+
+  // URL 파라미터 처리
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.search);
+    const urlExerciseType = searchParams.get("exercise");
+    const urlPhoneNumber = searchParams.get("phone");
+
+    console.log("URL 파라미터:", { urlExerciseType, urlPhoneNumber });
+
+    // URL에서 전화번호가 있으면 설정
+    if (urlPhoneNumber && urlPhoneNumber !== phoneNumber) {
+      console.log("URL에서 전화번호 설정:", urlPhoneNumber);
+      setUserPhoneNumber(urlPhoneNumber);
+    }
+
+    // URL에서 운동 타입이 있고, 현재 선택된 운동이 없거나 다르면 설정
+    if (urlExerciseType) {
+      const exerciseName = exerciseTypeMapping[urlExerciseType];
+
+      if (exerciseName) {
+        // exercises 배열에서 해당 운동 찾기
+        const targetExercise = exercises.find((ex) => ex.name === exerciseName);
+
+        if (targetExercise) {
+          // 현재 선택된 운동과 다르거나 없으면 설정
+          if (!exercise || exercise.name !== targetExercise.name) {
+            console.log(
+              `URL 파라미터로 운동 설정: ${targetExercise.name} (${urlExerciseType})`
+            );
+            setSelectedExercise(targetExercise);
+
+            // 기본 세트 설정 (1세트, 5kg, 5회)
+            if (!sets || sets.length === 0) {
+              setSetsGlobal([{ weight: 5, reps: 5 }]);
+              console.log("기본 세트 설정: 5kg x 5회");
+            }
+          }
+        } else {
+          console.warn(
+            `운동을 찾을 수 없습니다: ${exerciseName} (${urlExerciseType})`
+          );
+        }
+      } else {
+        console.warn(`매핑되지 않은 운동 타입: ${urlExerciseType}`);
+      }
+    }
+  }, [
+    location.search,
+    exercise,
+    phoneNumber,
+    sets,
+    setUserPhoneNumber,
+    setSelectedExercise,
+    setSetsGlobal,
+  ]);
 
   // 전체화면 토글 함수
   const toggleFullscreen = () => {
@@ -345,13 +423,16 @@ const RealTimeExercisePage: React.FC = () => {
     console.log("sets:", sets);
     console.log("phoneNumber:", phoneNumber);
 
-    // 필요한 데이터가 없으면 설정 페이지로 리다이렉트
-    if (!exercise || !sets || sets.length === 0) {
+    // URL 파라미터로 운동이 설정되는 경우 리다이렉트하지 않음
+    const searchParams = new URLSearchParams(location.search);
+    const urlExerciseType = searchParams.get("exercise");
+
+    if (!urlExerciseType && (!exercise || !sets || sets.length === 0)) {
       console.log("필요한 데이터가 없어 설정 페이지로 리다이렉트합니다.");
       navigate("/exercisesetup");
       return;
     }
-  }, [exercise, sets, phoneNumber, navigate]);
+  }, [exercise, sets, phoneNumber, navigate, location.search]);
 
   // 소켓 서버로부터 오는 응답 처리를 위한 함수
   useEffect(() => {
@@ -487,6 +568,43 @@ const RealTimeExercisePage: React.FC = () => {
     navigate("/startexercises");
   };
 
+  // 운동 유형 매핑 함수 수정
+  const getExerciseType = (exerciseData: Exercise | null): string => {
+    // URL 파라미터 우선 확인
+    const searchParams = new URLSearchParams(location.search);
+    const urlExerciseType = searchParams.get("exercise");
+
+    if (urlExerciseType) {
+      console.log(`URL에서 운동 타입 사용: ${urlExerciseType}`);
+      return urlExerciseType;
+    }
+
+    // 기존 매핑 로직
+    if (!exerciseData) {
+      console.warn("운동 정보가 없습니다. 기본값 'squat'로 설정합니다.");
+      return "squat";
+    }
+
+    // 운동 이름 기반 매핑
+    if (exerciseData.name === "바벨 스쿼트") return "squat";
+    if (exerciseData.name === "숄더 프레스") return "dumbbell_shoulder_press";
+    if (exerciseData.name === "런지") return "lunge";
+    if (exerciseData.name === "덤벨/바벨 컬") return "curl";
+    if (exerciseData.name === "사이드 레터럴 레이즈")
+      return "side_lateral_raise";
+    if (exerciseData.name === "데드 리프트") return "deadlift";
+    if (exerciseData.name === "바벨로우") return "barbell_row";
+    if (exerciseData.name === "덤벨로우") return "dumbbell_row";
+    if (exerciseData.name === "프론트레이즈") return "front_raise";
+    if (exerciseData.name === "인클라인 벤치프레스")
+      return "incline_bench_press";
+
+    console.warn(
+      `알 수 없는 운동 유형: ${exerciseData.name}, 기본값 'squat'로 설정합니다.`
+    );
+    return "squat";
+  };
+
   // 운동이 없거나 준비중인 경우 대체 UI 표시
   if (!exercise) {
     return (
@@ -539,24 +657,6 @@ const RealTimeExercisePage: React.FC = () => {
     );
   }
 
-  // 운동 유형 매핑
-  const getExerciseType = (name: string): string => {
-    if (name === "바벨 스쿼트") return "squat";
-    if (name === "숄더 프레스") return "dumbbell_shoulder_press";
-    if (name === "런지") return "lunge";
-    if (name === "사이드 레터럴 레이즈") return "lateral_raise";
-    if (name === "데드 리프트") return "deadlift";
-    if (name === "덤벨/바벨 컬") return "curl";
-    if (name === "바벨로우") return "barbell_row";
-    if (name === "덤벨로우") return "dumbbell_row";
-    if (name === "프론트레이즈") return "front_raise";
-    if (name === "인클라인 벤치프레스") return "incline_bench_press";
-
-    // 기본값으로 squat 반환
-    console.warn(`알 수 없는 운동 유형: ${name}, 기본값 'squat'로 설정합니다.`);
-    return "squat";
-  };
-
   return (
     <FullScreen>
       <Gnb />
@@ -565,7 +665,7 @@ const RealTimeExercisePage: React.FC = () => {
           <TitleContainer>
             <div>{exercise.name}</div>
             <div style={{ fontSize: "54px", color: "var(--gray-300)" }}>
-              진행: {currentSet}/{sets.length} 세트
+              진행: {currentSet}/{sets?.length || 1} 세트
             </div>
           </TitleContainer>
           <MainContentContainer>
@@ -573,7 +673,7 @@ const RealTimeExercisePage: React.FC = () => {
             <VideoContainer ref={videoContainerRef}>
               <PoseDetector
                 phoneNumber={phoneNumber || testPhoneNumber}
-                exerciseType={getExerciseType(exercise.name)}
+                exerciseType={getExerciseType(exercise)}
                 visualizationMode={visualizationMode}
                 onCountUpdate={handleCountUpdate}
                 onFeedback={handleFeedback}

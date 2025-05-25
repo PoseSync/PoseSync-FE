@@ -95,7 +95,7 @@ export const exercises: Exercise[] = [
     cardDescription: "팔꿈치를 접어 중량을 들어 이두근을 단련하는 운동",
     detailDescription:
       "덤벨/바벨 컬은 팔을 옆에 고정하고 팔꿈치를 굽혀 들어 올려 이두근을 강화하는 운동으로, 덤벨은 균형, 바벨은 고중량 자극에 효과적이다.",
-    available: false, // 준비 중
+    available: true, // 사용 가능으로 변경
   },
   {
     name: "바벨로우",
