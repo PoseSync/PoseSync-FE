@@ -22,8 +22,8 @@ interface CarouselProps {
 }
 
 const CarouselWrapper = styled.div`
-  width: 2835px;
-  height: 990px;
+  width: 2835.8px;
+  height: 1373px;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -31,8 +31,8 @@ const CarouselWrapper = styled.div`
   position: relative;
 
   .swiper {
-    width: 3200px !important;
-    margin-left: -200px;
+    width: 2835px;
+    margin-left: 0px;
   }
 
   .swiper-wrapper {
@@ -44,7 +44,7 @@ const Carousel: React.FC<CarouselProps> = ({ cards }) => {
   const swiperRef = useRef<SwiperType | null>(null);
 
   // 바벨 스쿼트의 초기 인덱스 찾기
-  const initialIndex = cards.findIndex((card) => card.title === "바벨 스쿼트");
+  const initialIndex = cards.findIndex((card) => card.title === "숄더 프레스");
   const [centerIndex, setCenterIndex] = useState(
     initialIndex !== -1 ? initialIndex : 2
   );
@@ -102,7 +102,7 @@ const Carousel: React.FC<CarouselProps> = ({ cards }) => {
         loopAdditionalSlides={3}
         coverflowEffect={{
           rotate: 0,
-          stretch: -300,
+          stretch: -100,
           depth: 100,
           modifier: 1.5,
           slideShadows: false,
