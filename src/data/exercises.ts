@@ -88,8 +88,8 @@ export const exercises: Exercise[] = [
     available: false, // 준비 중
   },
   {
-    name: "덤벨/바벨 컬",
-    type: "curl",
+    name: "바벨 컬",
+    type: "barbell_curl", // curl에서 barbell_curl로 변경
     image: barbellCurlImg,
     detailImage: barbellCurlDetailImg,
     cardDescription: "팔꿈치를 접어 중량을 들어 이두근을 단련하는 운동",

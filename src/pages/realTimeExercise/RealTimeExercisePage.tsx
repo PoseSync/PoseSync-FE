@@ -294,7 +294,7 @@ const RealTimeExercisePage: React.FC = () => {
     dumbbell_shoulder_press: "숄더 프레스",
     side_lateral_raise: "사이드 레터럴 레이즈",
     deadlift: "데드 리프트",
-    curl: "덤벨/바벨 컬",
+    barbell_curl: "바벨 컬",
     barbell_row: "바벨로우",
     dumbbell_row: "덤벨로우",
     front_raise: "프론트레이즈",
@@ -589,7 +589,7 @@ const RealTimeExercisePage: React.FC = () => {
     if (exerciseData.name === "바벨 스쿼트") return "squat";
     if (exerciseData.name === "숄더 프레스") return "dumbbell_shoulder_press";
     if (exerciseData.name === "런지") return "lunge";
-    if (exerciseData.name === "덤벨/바벨 컬") return "curl";
+    if (exerciseData.name === "바벨 컬") return "barbell_curl";
     if (exerciseData.name === "사이드 레터럴 레이즈")
       return "side_lateral_raise";
     if (exerciseData.name === "데드 리프트") return "deadlift";
