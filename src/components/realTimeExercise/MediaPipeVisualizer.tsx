@@ -19,6 +19,9 @@ const UPPER_BODY_KEYPOINTS = [11, 12, 13, 14, 15, 16];
 // 주요 관절 - 더 큰 점으로 표시할 관절들
 const KEY_JOINTS = [...LOWER_BODY_KEYPOINTS, ...UPPER_BODY_KEYPOINTS];
 
+// 손가락 랜드마크 ID (숨길 랜드마크들)
+const FINGER_LANDMARKS = [17, 18, 19, 20, 21, 22];
+
 interface MediaPipeVisualizerProps {
   videoElement: HTMLVideoElement | null;
   results: PoseLandmarkerResult | null;
@@ -33,7 +36,7 @@ interface MediaPipeVisualizerProps {
 
 /**
  * MediaPipe 랜드마크를 DrawingUtils를 사용하여 시각화하는 컴포넌트
- * 스타일 향상 버전
+ * 스타일 향상 버전 - 손가락 랜드마크 제거
  */
 const MediaPipeVisualizer: React.FC<MediaPipeVisualizerProps> = ({
   videoElement,
@@ -110,12 +113,18 @@ const MediaPipeVisualizer: React.FC<MediaPipeVisualizerProps> = ({
         visibility: lm.visibility || 1.0,
       }));
 
-      // 필터링된 랜드마크 생성 (얼굴 제외 옵션)
-      const filteredLandmarks = showFace
-        ? landmarksForDrawing
-        : landmarksForDrawing.map((lm, idx) =>
-            idx < 11 ? { ...lm, visibility: 0 } : lm
-          );
+      // 필터링된 랜드마크 생성 (얼굴 및 손가락 제외)
+      const filteredLandmarks = landmarksForDrawing.map((lm, idx) => {
+        // 얼굴 제외 (showFace가 false인 경우)
+        if (!showFace && idx < 11) {
+          return { ...lm, visibility: 0 };
+        }
+        // 손가락 랜드마크 제외
+        if (FINGER_LANDMARKS.includes(idx)) {
+          return { ...lm, visibility: 0 };
+        }
+        return lm;
+      });
 
       // 가이드라인 여부에 따른 스타일 설정
       let connectorStyle, pointStyle, shadowBlur;
@@ -217,7 +226,7 @@ const MediaPipeVisualizer: React.FC<MediaPipeVisualizerProps> = ({
         ctx.shadowBlur = 0;
       }
 
-      // 추가 시각적 효과: 주요 관절에 원형 강조 표시
+      // 추가 시각적 효과: 주요 관절에 원형 강조 표시 (손가락 제외)
       ctx.save();
       ctx.scale(-1, 1);
       ctx.translate(-canvas.width, 0);
@@ -239,8 +248,8 @@ const MediaPipeVisualizer: React.FC<MediaPipeVisualizerProps> = ({
             : "rgba(34, 197, 94, 0.2)"; // 녹색 반투명
           ctx.fill();
 
-          // 관절 ID 표시 (디버깅용, 선택적)
-          if (!isGuideline) {
+          // 관절 ID 표시 (디버깅용, 선택적) - 손가락은 제외
+          if (!isGuideline && !FINGER_LANDMARKS.includes(idx)) {
             ctx.fillStyle = "#FFFFFF";
             ctx.font = "12px Arial";
             ctx.fillText(

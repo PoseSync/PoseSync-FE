@@ -380,10 +380,7 @@ export const useSocket = (options: UseSocketOptions) => {
     });
 
     console.log("✅ disconnect_client 패킷 전송 완료");
-
-    // 실제 연결을 끊는다
-    socket.disconnect();
-  }, [socket, numericPhoneNumber]);
+  }, [socket, numericPhoneNumber]); // 서버에서 연결을 끊어주는 것으로 변경
 
   // 포즈 데이터 전송 함수
   const sendPose = useCallback(
