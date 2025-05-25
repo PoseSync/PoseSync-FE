@@ -34,6 +34,7 @@ const CenterContainer = styled.div`
   flex-direction: column;
   align-items: center;
   overflow: hidden;
+  justify-content: space-between;
 `;
 
 const TitleContainer = styled.div`
