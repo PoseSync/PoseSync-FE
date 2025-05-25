@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { PoseResult } from "../types";
+import { PoseResult, Landmark } from "../types";
 import {
   getMediaPipeInstance,
   cleanupMediaPipe,
@@ -18,14 +18,6 @@ interface PoseLandmarkerResult {
   worldLandmarks?: MediaPipeLandmark[][];
 }
 
-interface LandmarkWithId {
-  id: number;
-  x: number;
-  y: number;
-  z: number;
-  visibility?: number | undefined;
-}
-
 interface UseMediaPipeOptions {
   modelComplexity?: 0 | 1 | 2;
   smoothLandmarks?: boolean;
@@ -42,8 +34,10 @@ export const useMediaPipe = (
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<Error | null>(null);
 
-  // 랜드마크 상태 관리
-  const [rawLandmarks, setRawLandmarks] = useState<LandmarkWithId[]>([]);
+  // 랜드마크 상태 관리 - Landmark 타입으로 통일
+  const [rawLandmarks, setRawLandmarks] = useState<Landmark[]>([]);
+  // 📌 worldLandmarks 상태 추가
+  const [rawWorldLandmarks, setRawWorldLandmarks] = useState<Landmark[]>([]);
 
   // 원본 MediaPipe 결과 저장 (내장 시각화용)
   const [mediaPipeResults, setMediaPipeResults] =
@@ -115,9 +109,8 @@ export const useMediaPipe = (
         // 내장 시각화를 위해 원본 결과 저장
         setMediaPipeResults(results);
 
-        // 원본 랜드마크 저장 (시각화 및 서버 전송용)
-        // ID를 추가하여 저장
-        const landmarksWithId: LandmarkWithId[] = results.landmarks[0].map(
+        // 📌 poseLandmarks 처리 (2D 화면 좌표) - Landmark 타입으로 변환
+        const landmarksWithId: Landmark[] = results.landmarks[0].map(
           (lm, index) => ({
             id: index,
             x: lm.x,
@@ -127,7 +120,20 @@ export const useMediaPipe = (
           })
         );
 
+        // 📌 worldLandmarks 처리 (3D 월드 좌표) - Landmark 타입으로 변환
+        const worldLandmarksWithId: Landmark[] = results.worldLandmarks[0].map(
+          (lm, index) => ({
+            id: index,
+            x: lm.x,
+            y: lm.y,
+            z: lm.z || 0,
+            visibility: lm.visibility,
+          })
+        );
+
+        // 상태 업데이트
         setRawLandmarks(landmarksWithId);
+        setRawWorldLandmarks(worldLandmarksWithId);
 
         // 서버로 전송할 랜드마크는 화면의 거울 상태와 일치해야 함
         const mirrored = landmarksWithId.map((lm) => ({
@@ -138,13 +144,7 @@ export const useMediaPipe = (
         // PoseResult 객체 생성 (사용자 콜백용)
         const poseResult: PoseResult = {
           poseLandmarks: mirrored,
-          poseWorldLandmarks: results.worldLandmarks[0].map((lm, index) => ({
-            id: index,
-            x: lm.x,
-            y: lm.y,
-            z: lm.z || 0,
-            visibility: lm.visibility,
-          })),
+          poseWorldLandmarks: worldLandmarksWithId, // worldLandmarks는 거울 반전 적용하지 않음
         };
 
         // 사용자 콜백 함수 호출
@@ -328,7 +328,8 @@ export const useMediaPipe = (
   return {
     isLoading,
     error,
-    rawLandmarks, // 시각화 및 서버 전송용 원본 좌표
+    rawLandmarks, // 시각화 및 서버 전송용 2D 좌표 (poseLandmarks)
+    rawWorldLandmarks, // 📌 체형 분석용 3D 좌표 (worldLandmarks) 추가
     mediaPipeResults, // 내장 시각화용 원본 결과
   };
 };
