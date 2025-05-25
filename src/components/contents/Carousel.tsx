@@ -44,7 +44,7 @@ const Carousel: React.FC<CarouselProps> = ({ cards }) => {
   const swiperRef = useRef<SwiperType | null>(null);
 
   // 바벨 스쿼트의 초기 인덱스 찾기
-  const initialIndex = cards.findIndex((card) => card.title === "바벨 스쿼트");
+  const initialIndex = cards.findIndex((card) => card.title === "숄더 프레스");
   const [centerIndex, setCenterIndex] = useState(
     initialIndex !== -1 ? initialIndex : 2
   );
