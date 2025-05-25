@@ -14,6 +14,12 @@ interface ExerciseCardProps {
   available?: boolean; // 가용성 속성 추가
 }
 
+const CardWithReflection = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+`;
+
 const CardContainer = styled.div<ExerciseCardProps>`
   width: 880px;
   height: 990px;
@@ -187,6 +193,16 @@ const PreparingBadge = styled.div`
   z-index: 10;
 `;
 
+const ReflectedCard = styled(CardContainer)`
+  transform: scale(0.85) rotateX(180deg);
+  opacity: 0.7; 
+  pointer-events: none; 
+  margin-top: -20px;       // 위쪽 카드와 더 가까이 붙임
+  height: 600px;           // 아래 절반만 보이도록 (원래는 990px)
+  overflow: hidden;
+  mask-image: linear-gradient(to bottom, rgba(0,0,0,0.4), transparent); // 부드러운 흐림 효과
+`;
+
 const ExerciseCard: React.FC<ExerciseCardProps> = ({
   status = "default",
   imageSrc,
@@ -210,36 +226,65 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
   };
 
   return (
-    <CardContainer
-      status={isSelected ? "selected" : status}
-      onClick={handleClick}
-      data-available={available}
-    >
-      {!available && <PreparingBadge>준비 중</PreparingBadge>}
-      <ContentContainer>
-        <ImageContainer status={isSelected ? "selected" : status}>
-          {imageSrc && (
-            <StyledImage src={imageSrc} alt={imageAlt || "운동 이미지"} />
-          )}
-        </ImageContainer>
-        <TextContainer>
-          <SubtitleContainer>
-            {subtitle && (
-              <SubtitleText status={isSelected ? "selected" : status}>
-                {subtitle}
-              </SubtitleText>
+    <CardWithReflection>
+      <CardContainer
+        status={isSelected ? "selected" : status}
+        onClick={handleClick}
+        data-available={available}
+      >
+        {!available && <PreparingBadge>준비 중</PreparingBadge>}
+        <ContentContainer>
+          <ImageContainer status={isSelected ? "selected" : status}>
+            {imageSrc && (
+              <StyledImage src={imageSrc} alt={imageAlt || "운동 이미지"} />
             )}
-          </SubtitleContainer>
-          <Body2Container>
-            {bodyText && (
-              <Body2Text status={isSelected ? "selected" : status}>
-                {bodyText}
-              </Body2Text>
+          </ImageContainer>
+          <TextContainer>
+            <SubtitleContainer>
+              {subtitle && (
+                <SubtitleText status={isSelected ? "selected" : status}>
+                  {subtitle}
+                </SubtitleText>
+              )}
+            </SubtitleContainer>
+            <Body2Container>
+              {bodyText && (
+                <Body2Text status={isSelected ? "selected" : status}>
+                  {bodyText}
+                </Body2Text>
+              )}
+            </Body2Container>
+          </TextContainer>
+        </ContentContainer>
+      </CardContainer>
+
+      {/* 아래 반전된 카드 */}
+      <ReflectedCard status={isSelected ? "selected" : status} available={available}>
+        <ContentContainer>
+          <ImageContainer status={isSelected ? "selected" : status}>
+            {imageSrc && (
+              <StyledImage src={imageSrc} alt={imageAlt || "운동 이미지"} />
             )}
-          </Body2Container>
-        </TextContainer>
-      </ContentContainer>
-    </CardContainer>
+          </ImageContainer>
+          <TextContainer>
+            <SubtitleContainer>
+              {subtitle && (
+                <SubtitleText status={isSelected ? "selected" : status} style={{ transform: "rotateX(180deg)" }}>
+                  {subtitle}
+                </SubtitleText>
+              )}
+            </SubtitleContainer>
+            <Body2Container>
+              {bodyText && (
+                <Body2Text status={isSelected ? "selected" : status} style={{ transform: "rotateX(180deg)" }}>
+                  {bodyText}
+                </Body2Text>
+              )}
+            </Body2Container>
+          </TextContainer>
+        </ContentContainer>
+      </ReflectedCard>
+    </CardWithReflection>
   );
 };
 

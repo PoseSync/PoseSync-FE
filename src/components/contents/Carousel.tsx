@@ -22,7 +22,7 @@ interface CarouselProps {
 }
 
 const CarouselWrapper = styled.div`
-  width: 2835px;
+  width: 2835.8px;
   height: 1373px;
   display: flex;
   justify-content: center;
@@ -32,7 +32,7 @@ const CarouselWrapper = styled.div`
 
   .swiper {
     width: 2835px;
-    margin-left: -150px;
+    margin-left: 0px;
   }
 
   .swiper-wrapper {
