@@ -23,7 +23,7 @@ interface CarouselProps {
 
 const CarouselWrapper = styled.div`
   width: 2835px;
-  height: 990px;
+  height: 1373px;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -31,8 +31,8 @@ const CarouselWrapper = styled.div`
   position: relative;
 
   .swiper {
-    width: 3200px !important;
-    margin-left: -200px;
+    width: 2835px;
+    margin-left: -150px;
   }
 
   .swiper-wrapper {
@@ -102,7 +102,7 @@ const Carousel: React.FC<CarouselProps> = ({ cards }) => {
         loopAdditionalSlides={3}
         coverflowEffect={{
           rotate: 0,
-          stretch: -300,
+          stretch: -100,
           depth: 100,
           modifier: 1.5,
           slideShadows: false,
