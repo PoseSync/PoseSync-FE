@@ -7,7 +7,6 @@ import { PrimaryButton } from '../../components/buttons/PrimaryButton';
 import { useNavigate } from 'react-router-dom';
 import { useUserStore } from '../../store/useUserStore';
 import { useCreateUser } from '../../hooks/useCreateUser';
-import { toast } from 'react-toastify';
 
 const FullScreen = styled.div`
   width: 3840px;
@@ -192,8 +191,11 @@ const HeightInput = () => {
           (error.response as { data?: { error?: string } })?.data?.error === "phoneNumber and height are required"
         ) {
           msg = "핸드폰 번호 혹은 키가 입력되지 않았습니다.";
+          alert(msg);
+          navigate("/info");
+          return;
         }
-        toast.error(msg);
+        alert(msg);
       }
     });
     }
