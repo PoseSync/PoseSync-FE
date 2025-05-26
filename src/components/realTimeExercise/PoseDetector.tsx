@@ -7,6 +7,7 @@ import { useMediaPipe } from "../../hooks/useMediaPipe";
 import { useSocket, NextSetInfo } from "../../hooks/useSocket";
 import { Landmark } from "../../types";
 import { cleanupMediaPipe } from "../../utils/mediaPipeSingleton";
+import { usePoseAnalysis } from "../../hooks/usePoseAnalysis";
 
 interface PoseDetectorProps {
   phoneNumber: string;
@@ -37,10 +38,12 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
     null
   );
   const [lastFrameTime, setLastFrameTime] = useState<number>(0);
-  const [similarity, setSimilarity] = useState<number>(0);
   const [warningMessage, setWarningMessage] = useState<string>("");
   const [hasDisconnected, setHasDisconnected] = useState<boolean>(false); // 연결 해제 상태 추적
   const [mediaLoading, setMediaLoading] = useState<boolean>(true);
+
+  // 🎯 새로 추가: 자세 분석 훅
+  const { accuracy, analyzePose, resetAnalysis } = usePoseAnalysis();
 
   // 플래그 상수 (상태 변수가 아닌 상수로 정의하여 불필요한 경고 제거)
   const showFace = false;
@@ -131,9 +134,10 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
     return () => {
       // MediaPipe 정리
       cleanupMediaPipe();
+      resetAnalysis(); // 🎯 컴포넌트 언마운트 시 분석 상태 리셋
       console.log("PoseDetector 컴포넌트 언마운트 - MediaPipe 정리됨");
     };
-  }, []);
+  }, [resetAnalysis]);
 
   // 🎯 isTransmitting 상태 변화 감지하여 disconnect_client 패킷 전송
   useEffect(() => {
@@ -147,6 +151,9 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
     ) {
       console.log("🔴 전송 중단 감지 - disconnect_client 패킷 전송");
 
+      // 🎯 자세 분석 상태 리셋
+      resetAnalysis();
+
       if (disconnectClient) {
         disconnectClient();
         setHasDisconnected(true);
@@ -158,6 +165,9 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
     if (isTransmitting && hasDisconnected) {
       setHasDisconnected(false);
       console.log("🟢 전송 재시작 - 연결 해제 상태 초기화");
+
+      // 🎯 새로운 세트 시작 시 분석 상태 리셋
+      resetAnalysis();
     }
 
     // 현재 전송 상태를 이전 상태로 저장
@@ -170,6 +180,7 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
     disconnectClient,
     hasDisconnected,
     onFeedback,
+    resetAnalysis, // 🎯 의존성 추가
   ]);
 
   // 전신 가시성 체크 함수 - 안정화된 버전
@@ -242,7 +253,7 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
     []
   );
 
-  // 자세 유사도 계산 - 안정화된 버전
+  // 🎯 수정된 부분: 자세 분석 및 피드백 처리
   useEffect(() => {
     // 컴포넌트가 마운트 상태인지 확인
     if (!containerRef.current) return;
@@ -275,27 +286,45 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
       setWarningMessage("포즈를 감지할 수 없습니다. 카메라 앞에 서주세요.");
     }
 
-    // 유사도 계산 및 운동 카운트 업데이트
+    // 🎯 실시간 자세 분석 (전송 중이고 가이드라인이 있을 때만)
     if (
       rawLandmarks.length > 0 &&
       processedResult &&
       processedResult.visualizationLandmarks &&
-      processedResult.visualizationLandmarks.length > 0
+      processedResult.visualizationLandmarks.length > 0 &&
+      isTransmitting &&
+      !isResting &&
+      !isStartCountdown
     ) {
-      // 유사도 계산
-      // 단순화를 위해 먼저 유사도 값을 계산 없이 설정
-      const similarityPercentage = processedResult.similarity ?? 70; // 기본값 제공
-      setSimilarity(similarityPercentage);
+      // 타입 변환
+      const userLandmarks: Landmark[] = rawLandmarks.map((lm) => ({
+        id: lm.id,
+        x: lm.x,
+        y: lm.y,
+        z: lm.z,
+        visibility: lm.visibility,
+      }));
 
-      // 운동 카운트 업데이트
-      if (processedResult.exerciseCount !== undefined) {
-        onCountUpdate(processedResult.exerciseCount);
-      }
+      // 자세 분석 실행
+      const feedback = analyzePose(
+        userLandmarks,
+        processedResult.visualizationLandmarks
+      );
 
-      // 피드백 처리
-      if (processedResult.feedback) {
-        onFeedback(processedResult.feedback);
+      // 피드백이 있으면 상위 컴포넌트에 전달
+      if (feedback) {
+        onFeedback(feedback);
       }
+    }
+
+    // 운동 카운트 업데이트
+    if (processedResult && processedResult.exerciseCount !== undefined) {
+      onCountUpdate(processedResult.exerciseCount);
+    }
+
+    // 기타 피드백 처리
+    if (processedResult && processedResult.feedback) {
+      onFeedback(processedResult.feedback);
     }
   }, [
     rawLandmarks,
@@ -305,7 +334,11 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
     mediaPipeLoading,
     videoElement,
     mediaLoading,
-    checkFullBodyVisibility, // 이제 useCallback으로 안정화됨
+    checkFullBodyVisibility,
+    isTransmitting,
+    isResting,
+    isStartCountdown,
+    analyzePose, // 🎯 의존성 추가
   ]);
 
   // 비디오 요소가 준비되면 자동으로 소켓 연결 시도
@@ -552,7 +585,7 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
           </div>
         )}
 
-        {/* 화면 우측 상단에 정확도 표시 - 연결 해제, 휴식, 시작 카운트다운 중이 아닐 때만 표시 */}
+        {/* 화면 우측 상단에 정확도 표시 - 🎯 수정된 부분: accuracy 사용 */}
         {!hasDisconnected &&
           !mediaPipeLoading &&
           !mediaLoading &&
@@ -561,7 +594,7 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
             <div className="absolute top-3 right-3 bg-black bg-opacity-70 rounded-lg p-3 text-white">
               <div className="flex items-center">
                 <span className="mr-2">정확도:</span>
-                <PoseMatchIndicator similarity={similarity} />
+                <PoseMatchIndicator similarity={accuracy} />
               </div>
               <div className="text-xs mt-1">
                 랜드마크: {rawLandmarks.length}/33
