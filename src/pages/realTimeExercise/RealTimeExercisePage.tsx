@@ -7,7 +7,7 @@ import { useNavigate } from "react-router-dom";
 import { useExerciseStore } from "../../store/useExerciseStore";
 import { useUserStore } from "../../store/useUserStore";
 import { exercises, Exercise } from "../../data/exercises";
-import { NextSetInfo } from "../../types"; // 🎯 수정: types/index.ts에서 import
+import { NextSetInfo } from "../../types"; // NextSetInfo import
 
 const FullScreen = styled.div`
   width: 3840px;
@@ -357,7 +357,7 @@ const RealTimeExercisePage: React.FC = () => {
     incline_bench_press: "인클라인 벤치프레스",
   };
 
-  // 🎯 세트 완료 처리 함수
+  // 🎯 세트 완료 처리 함수 - null 체크 로직 추가
   const handleSetComplete = useCallback(
     (setInfo: NextSetInfo) => {
       console.log("🏁 세트 완료:", setInfo);
@@ -375,24 +375,34 @@ const RealTimeExercisePage: React.FC = () => {
         // 다음 세트가 있음 - 3초 휴식 후 자동 시작
         setIsResting(true);
         setRestCountdown(3);
-        setCurrentSet(setInfo.set_number);
+
+        // 🎯 null 체크 추가: set_number가 null이 아닐 때만 설정
+        if (setInfo.set_number !== null) {
+          setCurrentSet(setInfo.set_number);
+        }
+
         setCount(0); // 카운트 리셋
 
-        // 다음 세트 정보 저장
+        // 🎯 null 체크 추가: next_weight와 next_target_count가 null이 아닐 때만 설정
         if (
-          setInfo.next_weight !== undefined &&
-          setInfo.next_target_count !== undefined
+          setInfo.next_weight !== null &&
+          setInfo.next_target_count !== null
         ) {
           setNextSetInfo({
             weight: setInfo.next_weight,
             reps: setInfo.next_target_count,
           });
+        } else {
+          console.log("⚠️ 다음 세트 정보가 null입니다. 기본 세트 정보 사용.");
+          // null인 경우 현재 세트 정보 유지하거나 기본값 사용
+          setNextSetInfo(null);
         }
 
+        const currentSetNumber = setInfo.set_number || currentSet;
         handleFeedback(
-          `${setInfo.set_number - 1}세트 완료! 3초 후 ${
-            setInfo.set_number
-          }세트 시작합니다.`
+          `${
+            currentSetNumber - 1
+          }세트 완료! 3초 후 ${currentSetNumber}세트 시작합니다.`
         );
 
         // 3초 카운트다운
@@ -405,12 +415,12 @@ const RealTimeExercisePage: React.FC = () => {
             clearInterval(countdownInterval);
             setIsResting(false);
             setIsTransmitting(true); // 🟢 다음 세트 자동 시작
-            handleFeedback(`${setInfo.set_number}세트 시작!`);
+            handleFeedback(`${currentSetNumber}세트 시작!`);
           }
         }, 1000);
       }
     },
-    [navigate] // 🎯 수정: handleFeedback 의존성 제거 (아래에서 useCallback으로 정의)
+    [navigate, currentSet] // currentSet 의존성 추가
   );
 
   // 피드백 추가 함수 - useCallback으로 메모이제이션하여 의존성 배열에 안전하게 사용
@@ -483,7 +493,7 @@ const RealTimeExercisePage: React.FC = () => {
     setUserPhoneNumber,
     setSelectedExercise,
     setSetsGlobal,
-    exerciseTypeMapping, // 🎯 수정: 의존성 배열에 추가
+    exerciseTypeMapping,
   ]);
 
   // 전체화면 토글 함수
@@ -639,7 +649,7 @@ const RealTimeExercisePage: React.FC = () => {
       return "squat";
     },
     [location.search]
-  ); // 🎯 수정: useCallback으로 메모이제이션하고 의존성 추가
+  );
 
   // 운동이 없거나 준비중인 경우 대체 UI 표시
   if (!exercise) {
@@ -713,9 +723,9 @@ const RealTimeExercisePage: React.FC = () => {
                 visualizationMode={visualizationMode}
                 onCountUpdate={handleCountUpdate}
                 onFeedback={handleFeedback}
-                onSetComplete={handleSetComplete} // 🎯 새로 추가: 세트 완료 콜백
+                onSetComplete={handleSetComplete} // 🎯 세트 완료 콜백
                 isTransmitting={isTransmitting}
-                isResting={isResting} // 🎯 새로 추가: 휴식 상태 전달
+                isResting={isResting} // 🎯 휴식 상태 전달
               />
 
               {/* 🎯 휴식 중 오버레이 */}

@@ -1,24 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Socket, io } from "socket.io-client";
-import { Landmark, ProcessedResult } from "../types";
+import { Landmark, ProcessedResult, NextSetInfo } from "../types"; // 🎯 NextSetInfo를 types에서 import
 
 interface UseSocketOptions {
   phoneNumber: string;
   exerciseType: string;
   autoConnect?: boolean;
   onSetComplete?: (setInfo: NextSetInfo) => void; // 세트 완료 콜백 추가
-}
-
-// 서버에서 보내는 next 이벤트 데이터 타입
-interface NextSetInfo {
-  exerciseType: string;
-  current_count: number;
-  exercise_weight: number;
-  set_number: number;
-  next_weight?: number;
-  next_target_count?: number;
-  is_last: boolean;
-  count: number;
 }
 
 // 서버 URL 설정 - window.location.hostname을 사용하여 동적으로 설정
@@ -242,7 +230,7 @@ export const useSocket = (options: UseSocketOptions) => {
       }
     );
 
-    // 🎯 새로 추가: next 이벤트 처리 (세트 완료 시 서버에서 전송)
+    // 🎯 next 이벤트 처리 (세트 완료 시 서버에서 전송) - null 값 허용
     newSocket.on("next", (data: NextSetInfo) => {
       if (!mountedRef.current) return;
       console.log("🎯 서버에서 next 이벤트 수신:", data);
@@ -472,5 +460,5 @@ export const useSocket = (options: UseSocketOptions) => {
   };
 };
 
-// NextSetInfo 타입도 export
+// NextSetInfo 타입도 export (types/index.ts에서 이미 export되므로 re-export)
 export type { NextSetInfo };

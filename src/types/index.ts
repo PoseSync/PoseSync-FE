@@ -59,16 +59,13 @@ export interface ProcessedResult {
   requestId?: string; // 요청 ID
 }
 
-// 🎯 새로 추가: 서버에서 보내는 next 이벤트 데이터 타입
+// 🎯 수정된 서버에서 보내는 next 이벤트 데이터 타입 (null 허용)
 export interface NextSetInfo {
-  exerciseType: string;
-  current_count: number;
-  exercise_weight: number;
-  set_number: number;
-  next_weight?: number;
-  next_target_count?: number;
-  is_last: boolean;
-  count: number;
+  set_number: number | null; // 다음 세트 번호 (마지막일 때 null)
+  next_weight: number | null; // 다음 세트 무게 (마지막일 때 null)
+  next_target_count: number | null; // 다음 세트 목표 횟수 (마지막일 때 null)
+  is_last: boolean; // 마지막 세트 여부
+  count: number; // 횟수 초기화 용도
 }
 
 // MediaPipeLandmark 인터페이스 확인/추가
