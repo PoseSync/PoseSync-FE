@@ -7,6 +7,7 @@ import { useNavigate } from "react-router-dom";
 import { useExerciseStore } from "../../store/useExerciseStore";
 import { useUserStore } from "../../store/useUserStore";
 import { exercises, Exercise } from "../../data/exercises";
+import { NextSetInfo } from "../../types"; // 🎯 수정: types/index.ts에서 import
 
 const FullScreen = styled.div`
   width: 3840px;
@@ -106,6 +107,44 @@ const ControlPanel = styled.div`
   gap: var(--gap-6);
 `;
 
+// 휴식 오버레이 스타일 추가
+const RestOverlay = styled.div`
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 20;
+`;
+
+const RestText = styled.div`
+  color: var(--yellow-400);
+  font-family: "Pretendard Variable", sans-serif;
+  font-weight: 700;
+  font-size: 80px;
+  margin-bottom: 20px;
+`;
+
+const RestCountdown = styled.div`
+  color: var(--white);
+  font-family: "Pretendard Variable", sans-serif;
+  font-weight: 700;
+  font-size: 160px;
+  margin-bottom: 20px;
+`;
+
+const RestSubText = styled.div`
+  color: var(--gray-300);
+  font-family: "Pretendard Variable", sans-serif;
+  font-weight: 600;
+  font-size: 48px;
+`;
+
 // 횟수 표시를 위한 스타일
 const CountDisplay = styled.div`
   color: var(--yellow-400);
@@ -162,17 +201,26 @@ const AccuracyBarProgress = styled.div<{ $value: number }>`
 `;
 
 // 전송 버튼 스타일
-const TransmitButton = styled.button<{ $active?: boolean }>`
-  background: ${(props) =>
-    props.$active ? "var(--yellow-500)" : "var(--gray-700)"};
+const TransmitButton = styled.button<{
+  $active?: boolean;
+  $disabled?: boolean;
+}>`
+  background: ${(props) => {
+    if (props.$disabled) return "var(--gray-600)";
+    return props.$active ? "var(--yellow-500)" : "var(--gray-700)";
+  }};
   padding: 20px;
   border-radius: var(--radius-xs);
-  color: ${(props) => (props.$active ? "var(--gray-900)" : "white")};
+  color: ${(props) => {
+    if (props.$disabled) return "var(--gray-400)";
+    return props.$active ? "var(--gray-900)" : "white";
+  }};
   border: none;
-  cursor: pointer;
+  cursor: ${(props) => (props.$disabled ? "not-allowed" : "pointer")};
   font-family: "Pretendard Variable", sans-serif;
   font-size: 36px;
   width: 100%;
+  opacity: ${(props) => (props.$disabled ? 0.5 : 1)};
 `;
 
 // 피드백 컨테이너
@@ -286,6 +334,14 @@ const RealTimeExercisePage: React.FC = () => {
   // 전체화면 상태
   const [isFullscreen, setIsFullscreen] = useState(false);
 
+  // 🎯 새로 추가: 세트별 순환 관련 상태
+  const [isResting, setIsResting] = useState(false);
+  const [restCountdown, setRestCountdown] = useState(0);
+  const [nextSetInfo, setNextSetInfo] = useState<{
+    weight: number;
+    reps: number;
+  } | null>(null);
+
   // 서버 변수명과 운동 이름 매핑
   const exerciseTypeMapping: Record<string, string> = {
     squat: "바벨 스쿼트",
@@ -300,6 +356,79 @@ const RealTimeExercisePage: React.FC = () => {
     front_raise: "프론트레이즈",
     incline_bench_press: "인클라인 벤치프레스",
   };
+
+  // 🎯 세트 완료 처리 함수
+  const handleSetComplete = useCallback(
+    (setInfo: NextSetInfo) => {
+      console.log("🏁 세트 완료:", setInfo);
+
+      // 1. 전송 중단 (disconnect_client 패킷 자동 전송)
+      setIsTransmitting(false);
+
+      if (setInfo.is_last) {
+        // 마지막 세트 완료 - 운동 종료
+        handleFeedback("모든 세트가 완료되었습니다! 수고하셨습니다.");
+        setTimeout(() => {
+          navigate("/completed");
+        }, 3000);
+      } else {
+        // 다음 세트가 있음 - 3초 휴식 후 자동 시작
+        setIsResting(true);
+        setRestCountdown(3);
+        setCurrentSet(setInfo.set_number);
+        setCount(0); // 카운트 리셋
+
+        // 다음 세트 정보 저장
+        if (
+          setInfo.next_weight !== undefined &&
+          setInfo.next_target_count !== undefined
+        ) {
+          setNextSetInfo({
+            weight: setInfo.next_weight,
+            reps: setInfo.next_target_count,
+          });
+        }
+
+        handleFeedback(
+          `${setInfo.set_number - 1}세트 완료! 3초 후 ${
+            setInfo.set_number
+          }세트 시작합니다.`
+        );
+
+        // 3초 카운트다운
+        let currentCountdown = 3;
+        const countdownInterval = setInterval(() => {
+          currentCountdown--;
+          setRestCountdown(currentCountdown);
+
+          if (currentCountdown <= 0) {
+            clearInterval(countdownInterval);
+            setIsResting(false);
+            setIsTransmitting(true); // 🟢 다음 세트 자동 시작
+            handleFeedback(`${setInfo.set_number}세트 시작!`);
+          }
+        }, 1000);
+      }
+    },
+    [navigate] // 🎯 수정: handleFeedback 의존성 제거 (아래에서 useCallback으로 정의)
+  );
+
+  // 피드백 추가 함수 - useCallback으로 메모이제이션하여 의존성 배열에 안전하게 사용
+  const handleFeedback = useCallback((message: string) => {
+    // 새 피드백을 추가하고 최대 10개까지만 유지 (너무 많아지지 않도록)
+    setFeedbacks((prev) => {
+      const newFeedbacks = [...prev, message];
+      return newFeedbacks.slice(-10); // 최근 10개만 유지
+    });
+
+    // 피드백 메시지에 기반한 정확도 분석 (예시)
+    // 실제로는 서버에서 랜드마크 비교 결과에 따라 정확도가 계산되어야 함
+    if (message.includes("자세가 정확합니다") || message.includes("좋습니다")) {
+      setAccuracy((prev) => Math.min(prev + 5, 100));
+    } else if (message.includes("수정") || message.includes("조정")) {
+      setAccuracy((prev) => Math.max(prev - 3, 0));
+    }
+  }, []);
 
   // URL 파라미터 처리
   useEffect(() => {
@@ -354,6 +483,7 @@ const RealTimeExercisePage: React.FC = () => {
     setUserPhoneNumber,
     setSelectedExercise,
     setSetsGlobal,
+    exerciseTypeMapping, // 🎯 수정: 의존성 배열에 추가
   ]);
 
   // 전체화면 토글 함수
@@ -400,23 +530,6 @@ const RealTimeExercisePage: React.FC = () => {
     };
   }, []);
 
-  // 피드백 추가 함수 - useCallback으로 메모이제이션하여 의존성 배열에 안전하게 사용
-  const handleFeedback = useCallback((message: string) => {
-    // 새 피드백을 추가하고 최대 10개까지만 유지 (너무 많아지지 않도록)
-    setFeedbacks((prev) => {
-      const newFeedbacks = [...prev, message];
-      return newFeedbacks.slice(-10); // 최근 10개만 유지
-    });
-
-    // 피드백 메시지에 기반한 정확도 분석 (예시)
-    // 실제로는 서버에서 랜드마크 비교 결과에 따라 정확도가 계산되어야 함
-    if (message.includes("자세가 정확합니다") || message.includes("좋습니다")) {
-      setAccuracy((prev) => Math.min(prev + 5, 100));
-    } else if (message.includes("수정") || message.includes("조정")) {
-      setAccuracy((prev) => Math.max(prev - 3, 0));
-    }
-  }, []);
-
   useEffect(() => {
     console.log("RealTimeExercisePage가 마운트되었습니다.");
     console.log("exercise:", exercise);
@@ -434,97 +547,28 @@ const RealTimeExercisePage: React.FC = () => {
     }
   }, [exercise, sets, phoneNumber, navigate, location.search]);
 
-  // 소켓 서버로부터 오는 응답 처리를 위한 함수
-  useEffect(() => {
-    // 소켓이 연결되고 전송 중일 때만 필요한 처리
-    if (isTransmitting) {
-      // 실제 서버와의 통신에서는 이 부분이 구현되어야 함
-      // 소켓 통신 부분은 주석 처리하여 타입 오류 방지
-      /*
-      const handleSocketResult = (data: any) => {
-        // 서버로부터 받은 데이터에서 count와 similarity 값 추출
-        if (data && typeof data === 'object') {
-          // 카운트 정보가 있으면 업데이트
-          if ('count' in data && typeof data.count === 'number') {
-            setCount(data.count);
-          }
-
-          // 유사도/정확도 정보가 있으면 업데이트
-          if ('similarity' in data && typeof data.similarity === 'number') {
-            setAccuracy(data.similarity);
-            
-            // 정확도에 따른 자동 피드백 생성 (예시)
-            if (data.similarity < 40) {
-              handleFeedback("자세가 크게 벗어났습니다. 가이드라인을 참고해주세요.");
-            } else if (data.similarity < 60) {
-              handleFeedback("자세를 조정해주세요. 기본 자세와 차이가 있습니다.");
-            } else if (data.similarity > 90) {
-              handleFeedback("자세가 매우 정확합니다. 좋은 움직임입니다!");
-            }
-          }
-
-          // 피드백 메시지가 있으면 추가
-          if ('feedback' in data && typeof data.feedback === 'string' && data.feedback) {
-            handleFeedback(data.feedback);
-          }
-        }
-      };
-
-      // 소켓 이벤트 리스너 등록 (실제 구현에서는 해당 소켓 객체에 맞게 수정 필요)
-      // socket.on('result', handleSocketResult);
-
-      // 정리 함수
-      return () => {
-        // 소켓 이벤트 리스너 제거
-        // socket.off('result', handleSocketResult);
-      };
-      */
-    }
-  }, [isTransmitting, handleFeedback]);
-
   // 카운트 업데이트 콜백 - useCallback으로 메모이제이션
-  const handleCountUpdate = useCallback(
-    (newCount: number) => {
-      // 소켓 통신으로부터 받은 카운트 값을 사용
-      setCount(newCount);
+  const handleCountUpdate = useCallback((newCount: number) => {
+    // 소켓 통신으로부터 받은 카운트 값을 사용
+    setCount(newCount);
 
-      // 현재 세트 목표 횟수 달성 시 다음 세트로 넘어가기
-      if (
-        sets &&
-        currentSet <= sets.length &&
-        newCount >= sets[currentSet - 1]?.reps
-      ) {
-        if (currentSet < sets.length) {
-          // 다음 세트로 넘어가기 전 피드백 추가
-          handleFeedback(`${currentSet}세트 완료! 다음 세트를 준비하세요.`);
-
-          setTimeout(() => {
-            setCurrentSet((prev) => prev + 1);
-            setCount(0);
-          }, 3000);
-        } else {
-          // 모든 세트 완료
-          handleFeedback("모든 세트가 완료되었습니다! 수고하셨습니다.");
-
-          setTimeout(() => {
-            navigate("/completed");
-          }, 5000);
-        }
-      }
-    },
-    [sets, currentSet, handleFeedback, navigate]
-  );
+    // 세트 완료는 서버에서 next 이벤트로 처리되므로
+    // 여기서는 단순히 카운트만 업데이트
+  }, []);
 
   // 전송 상태 토글 (수정된 부분)
   const toggleTransmission = () => {
-    const wasTransmitting = isTransmitting;
+    if (isResting) {
+      // 휴식 중에는 버튼 비활성화
+      return;
+    }
 
+    const wasTransmitting = isTransmitting;
     setIsTransmitting((prev) => !prev);
 
     if (wasTransmitting) {
       // 전송을 중단하는 경우 - disconnect_client 패킷 전송
-      console.log("🔴 전송 중단 - disconnect_client 패킷 전송");
-      handleDisconnectClient();
+      console.log("🔴 전송 중단 - 사용자가 수동으로 중지");
 
       // 피드백 및 정확도 초기화
       setFeedbacks([]);
@@ -545,23 +589,12 @@ const RealTimeExercisePage: React.FC = () => {
     }
   };
 
-  // disconnect_client 패킷 전송 함수
-  const handleDisconnectClient = () => {
-    // PoseDetector 컴포넌트의 disconnect 함수를 호출하기 위해
-    // ref를 통해 호출하거나, 상태를 통해 신호를 보냄
-    // 여기서는 PoseDetector에서 isTransmitting이 false가 되는 것을 감지하여 처리하도록 함
-
-    console.log("운동 중단 처리 중...");
-
-    // 현재 운동 횟수와 함께 disconnect_client 정보를 PoseDetector로 전달
-    // 이는 PoseDetector 컴포넌트에서 처리될 예정
-  };
-
-  // 현재 세트 정보
+  // 현재 세트 정보 (다음 세트 정보가 있으면 그것을 사용, 없으면 기본 세트 정보 사용)
   const currentSetData =
-    sets && sets.length > 0 && currentSet <= sets.length
+    nextSetInfo ||
+    (sets && sets.length > 0 && currentSet <= sets.length
       ? sets[currentSet - 1]
-      : { weight: 0, reps: 0 };
+      : { weight: 0, reps: 0 });
 
   // 운동 선택으로 돌아가기
   const handleGoBackToExerciseSelection = () => {
@@ -569,41 +602,44 @@ const RealTimeExercisePage: React.FC = () => {
   };
 
   // 운동 유형 매핑 함수 수정
-  const getExerciseType = (exerciseData: Exercise | null): string => {
-    // URL 파라미터 우선 확인
-    const searchParams = new URLSearchParams(location.search);
-    const urlExerciseType = searchParams.get("exercise");
+  const getExerciseType = useCallback(
+    (exerciseData: Exercise | null): string => {
+      // URL 파라미터 우선 확인
+      const searchParams = new URLSearchParams(location.search);
+      const urlExerciseType = searchParams.get("exercise");
 
-    if (urlExerciseType) {
-      console.log(`URL에서 운동 타입 사용: ${urlExerciseType}`);
-      return urlExerciseType;
-    }
+      if (urlExerciseType) {
+        console.log(`URL에서 운동 타입 사용: ${urlExerciseType}`);
+        return urlExerciseType;
+      }
 
-    // 기존 매핑 로직
-    if (!exerciseData) {
-      console.warn("운동 정보가 없습니다. 기본값 'squat'로 설정합니다.");
+      // 기존 매핑 로직
+      if (!exerciseData) {
+        console.warn("운동 정보가 없습니다. 기본값 'squat'로 설정합니다.");
+        return "squat";
+      }
+
+      // 운동 이름 기반 매핑
+      if (exerciseData.name === "바벨 스쿼트") return "squat";
+      if (exerciseData.name === "숄더 프레스") return "dumbbell_shoulder_press";
+      if (exerciseData.name === "런지") return "lunge";
+      if (exerciseData.name === "바벨 컬") return "barbell_curl";
+      if (exerciseData.name === "사이드 레터럴 레이즈")
+        return "side_lateral_raise";
+      if (exerciseData.name === "데드 리프트") return "deadlift";
+      if (exerciseData.name === "바벨로우") return "barbell_row";
+      if (exerciseData.name === "덤벨로우") return "dumbbell_row";
+      if (exerciseData.name === "프론트레이즈") return "front_raise";
+      if (exerciseData.name === "인클라인 벤치프레스")
+        return "incline_bench_press";
+
+      console.warn(
+        `알 수 없는 운동 유형: ${exerciseData.name}, 기본값 'squat'로 설정합니다.`
+      );
       return "squat";
-    }
-
-    // 운동 이름 기반 매핑
-    if (exerciseData.name === "바벨 스쿼트") return "squat";
-    if (exerciseData.name === "숄더 프레스") return "dumbbell_shoulder_press";
-    if (exerciseData.name === "런지") return "lunge";
-    if (exerciseData.name === "바벨 컬") return "barbell_curl";
-    if (exerciseData.name === "사이드 레터럴 레이즈")
-      return "side_lateral_raise";
-    if (exerciseData.name === "데드 리프트") return "deadlift";
-    if (exerciseData.name === "바벨로우") return "barbell_row";
-    if (exerciseData.name === "덤벨로우") return "dumbbell_row";
-    if (exerciseData.name === "프론트레이즈") return "front_raise";
-    if (exerciseData.name === "인클라인 벤치프레스")
-      return "incline_bench_press";
-
-    console.warn(
-      `알 수 없는 운동 유형: ${exerciseData.name}, 기본값 'squat'로 설정합니다.`
-    );
-    return "squat";
-  };
+    },
+    [location.search]
+  ); // 🎯 수정: useCallback으로 메모이제이션하고 의존성 추가
 
   // 운동이 없거나 준비중인 경우 대체 UI 표시
   if (!exercise) {
@@ -677,10 +713,20 @@ const RealTimeExercisePage: React.FC = () => {
                 visualizationMode={visualizationMode}
                 onCountUpdate={handleCountUpdate}
                 onFeedback={handleFeedback}
+                onSetComplete={handleSetComplete} // 🎯 새로 추가: 세트 완료 콜백
                 isTransmitting={isTransmitting}
-                currentCount={count} // 현재 운동 횟수 전달
-                shouldDisconnect={!isTransmitting} // 전송 중단 신호 전달
+                isResting={isResting} // 🎯 새로 추가: 휴식 상태 전달
               />
+
+              {/* 🎯 휴식 중 오버레이 */}
+              {isResting && (
+                <RestOverlay>
+                  <RestText>휴식 시간</RestText>
+                  <RestCountdown>{restCountdown}</RestCountdown>
+                  <RestSubText>다음 세트까지</RestSubText>
+                </RestOverlay>
+              )}
+
               {/* 전체화면 버튼 추가 */}
               <FullscreenButton onClick={toggleFullscreen}>
                 {isFullscreen ? "전체화면 종료" : "전체화면"}
@@ -712,9 +758,14 @@ const RealTimeExercisePage: React.FC = () => {
                 {/* 전송 버튼 */}
                 <TransmitButton
                   $active={isTransmitting}
+                  $disabled={isResting}
                   onClick={toggleTransmission}
                 >
-                  {isTransmitting ? "전송 중지" : "전송 시작"}
+                  {isResting
+                    ? "휴식 중..."
+                    : isTransmitting
+                    ? "전송 중지"
+                    : "전송 시작"}
                 </TransmitButton>
               </ControlPanel>
 
@@ -729,7 +780,8 @@ const RealTimeExercisePage: React.FC = () => {
                     feedback.includes("수고하셨습니다") ||
                     feedback.includes("매우 정확합니다") ||
                     feedback.includes("중단되었습니다") ||
-                    feedback.includes("시작합니다");
+                    feedback.includes("시작합니다") ||
+                    feedback.includes("시작!");
 
                   return (
                     <FeedbackMessage key={index} $isImportant={isImportant}>

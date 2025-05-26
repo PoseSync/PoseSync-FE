@@ -6,6 +6,19 @@ interface UseSocketOptions {
   phoneNumber: string;
   exerciseType: string;
   autoConnect?: boolean;
+  onSetComplete?: (setInfo: NextSetInfo) => void; // 세트 완료 콜백 추가
+}
+
+// 서버에서 보내는 next 이벤트 데이터 타입
+interface NextSetInfo {
+  exerciseType: string;
+  current_count: number;
+  exercise_weight: number;
+  set_number: number;
+  next_weight?: number;
+  next_target_count?: number;
+  is_last: boolean;
+  count: number;
 }
 
 // 서버 URL 설정 - window.location.hostname을 사용하여 동적으로 설정
@@ -32,7 +45,12 @@ interface LatencyStats {
 }
 
 export const useSocket = (options: UseSocketOptions) => {
-  const { phoneNumber, exerciseType, autoConnect = false } = options;
+  const {
+    phoneNumber,
+    exerciseType,
+    autoConnect = false,
+    onSetComplete,
+  } = options;
 
   // 전화번호에서 숫자만 추출
   const numericPhoneNumber = phoneNumber.replace(/[^0-9]/g, "");
@@ -161,7 +179,7 @@ export const useSocket = (options: UseSocketOptions) => {
       }
     });
 
-    // 서버에서 결과 수신 - 🎯 여기가 핵심 수정 부분!
+    // 서버에서 결과 수신
     newSocket.on(
       "result",
       (
@@ -169,7 +187,7 @@ export const useSocket = (options: UseSocketOptions) => {
           requestId?: string;
           serverProcessingTime?: number;
           exerciseCount?: number;
-          count?: number; // ✅ 서버에서 보내는 실제 필드
+          count?: number;
         }
       ) => {
         if (!mountedRef.current) return;
@@ -211,7 +229,7 @@ export const useSocket = (options: UseSocketOptions) => {
           }
         }
 
-        // 🎯 운동 횟수 업데이트 - 서버의 count 필드 사용
+        // 운동 횟수 업데이트 - 서버의 count 필드 사용
         if (data.count !== undefined) {
           console.log(`🏋️ 서버에서 받은 운동 횟수: ${data.count}`);
           currentCountRef.current = data.count;
@@ -224,13 +242,15 @@ export const useSocket = (options: UseSocketOptions) => {
       }
     );
 
-    // next 이벤트 처리 (서버에서 운동 완료 후 전송)
-    newSocket.on("next", (data) => {
+    // 🎯 새로 추가: next 이벤트 처리 (세트 완료 시 서버에서 전송)
+    newSocket.on("next", (data: NextSetInfo) => {
       if (!mountedRef.current) return;
       console.log("🎯 서버에서 next 이벤트 수신:", data);
 
-      // 다음 세트나 운동 완료 처리
-      // 필요에 따라 상위 컴포넌트에 알림
+      // 상위 컴포넌트에 세트 완료 알림
+      if (onSetComplete) {
+        onSetComplete(data);
+      }
     });
 
     setSocket(newSocket);
@@ -273,7 +293,13 @@ export const useSocket = (options: UseSocketOptions) => {
       newSocket.removeAllListeners();
       newSocket.close();
     };
-  }, [numericPhoneNumber, autoConnect, serverUrl, calculateLatencyStats]);
+  }, [
+    numericPhoneNumber,
+    autoConnect,
+    serverUrl,
+    calculateLatencyStats,
+    onSetComplete,
+  ]);
 
   // 레이턴시 통계를 주기적으로 콘솔에 출력
   useEffect(() => {
@@ -445,3 +471,6 @@ export const useSocket = (options: UseSocketOptions) => {
     latencyStats,
   };
 };
+
+// NextSetInfo 타입도 export
+export type { NextSetInfo };

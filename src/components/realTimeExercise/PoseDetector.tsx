@@ -4,7 +4,7 @@ import MediaPipeVisualizer from "./MediaPipeVisualizer";
 import PoseMatchIndicator from "./PoseMatchIndicator";
 import PoseDifferenceVisualizer from "./PoseDifferenceVisualizer";
 import { useMediaPipe } from "../../hooks/useMediaPipe";
-import { useSocket } from "../../hooks/useSocket";
+import { useSocket, NextSetInfo } from "../../hooks/useSocket";
 import { Landmark } from "../../types";
 import { cleanupMediaPipe } from "../../utils/mediaPipeSingleton";
 
@@ -14,9 +14,9 @@ interface PoseDetectorProps {
   visualizationMode: string;
   onCountUpdate: (count: number) => void;
   onFeedback: (message: string) => void;
+  onSetComplete?: (setInfo: NextSetInfo) => void; // 🎯 새로 추가: 세트 완료 콜백
   isTransmitting: boolean;
-  currentCount?: number; // 현재 운동 횟수 (추가)
-  shouldDisconnect?: boolean; // 연결 해제 신호 (추가)
+  isResting?: boolean; // 🎯 새로 추가: 휴식 상태
 }
 
 const PoseDetector: React.FC<PoseDetectorProps> = ({
@@ -24,9 +24,9 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
   exerciseType,
   onCountUpdate,
   onFeedback,
+  onSetComplete, // 🎯 새로 추가
   isTransmitting,
-  currentCount = 0, // 기본값 0
-  shouldDisconnect = false, // 기본값 false
+  isResting = false, // 🎯 새로 추가: 기본값 false
 }) => {
   // 기본 상태
   const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(
@@ -50,6 +50,9 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
   // 컨테이너 참조
   const containerRef = useRef<HTMLDivElement>(null);
   const errorMessageRef = useRef<string>("");
+
+  // 🎯 새로 추가: 이전 전송 상태 추적
+  const wasTransmittingRef = useRef<boolean>(false);
 
   // 비디오 요소 설정 콜백
   const handleVideoElementReady = useCallback(
@@ -83,18 +86,19 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
     minTrackingConfidence: 0.3, // 기존 0.5에서 0.3으로 낮춤
   });
 
-  // Socket.io 훅 사용
+  // Socket.io 훅 사용 - 🎯 onSetComplete 콜백 추가
   const {
     isConnected,
     isConnecting,
     connect,
-    disconnectClient, // 추가된 함수
+    disconnectClient,
     sendPose,
     processedResult,
   } = useSocket({
     phoneNumber,
     exerciseType,
     autoConnect: false,
+    onSetComplete, // 🎯 세트 완료 콜백 전달
   });
 
   // MediaPipe 오류 상태 표시
@@ -126,6 +130,41 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
       console.log("PoseDetector 컴포넌트 언마운트 - MediaPipe 정리됨");
     };
   }, []);
+
+  // 🎯 새로 추가: isTransmitting 상태 변화 감지하여 disconnect_client 패킷 전송
+  useEffect(() => {
+    // 전송 중이었다가 중단된 경우 (휴식 상태가 아닐 때만)
+    if (
+      wasTransmittingRef.current &&
+      !isTransmitting &&
+      isConnected &&
+      !isResting
+    ) {
+      console.log("🔴 전송 중단 감지 - disconnect_client 패킷 전송");
+
+      if (disconnectClient) {
+        disconnectClient();
+        setHasDisconnected(true);
+        onFeedback("운동 데이터가 서버에 저장되었습니다.");
+      }
+    }
+
+    // 전송 상태가 다시 시작되면 연결 해제 상태 초기화
+    if (isTransmitting && hasDisconnected) {
+      setHasDisconnected(false);
+      console.log("🟢 전송 재시작 - 연결 해제 상태 초기화");
+    }
+
+    // 현재 전송 상태를 이전 상태로 저장
+    wasTransmittingRef.current = isTransmitting;
+  }, [
+    isTransmitting,
+    isConnected,
+    isResting,
+    disconnectClient,
+    hasDisconnected,
+    onFeedback,
+  ]);
 
   // 전신 가시성 체크 함수 - 안정화된 버전
   const checkFullBodyVisibility = useCallback((landmarks: Landmark[]) => {
@@ -167,44 +206,6 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
 
     return allVisible;
   }, []);
-
-  // 연결 해제 처리 - shouldDisconnect 상태 변화 감지
-  useEffect(() => {
-    // shouldDisconnect가 true이고, 이전에 연결이 되어있었으며, 아직 연결 해제하지 않았을 때
-    if (shouldDisconnect && isConnected && !hasDisconnected) {
-      console.log("🔴 PoseDetector에서 disconnect_client 패킷 전송");
-
-      // disconnect_client 패킷을 서버로 전송 (현재 운동 횟수와 함께)
-      if (disconnectClient) {
-        // 소켓에 현재 운동 횟수 정보와 함께 연결 해제 요청
-        disconnectClient();
-
-        // 연결 해제 완료 상태로 설정
-        setHasDisconnected(true);
-
-        // 피드백 전송
-        onFeedback("운동 데이터가 서버에 저장되었습니다.");
-
-        console.log(
-          "✅ disconnect_client 패킷 전송 완료, 현재 운동 횟수:",
-          currentCount
-        );
-      }
-    }
-
-    // 전송이 다시 시작되면 연결 해제 상태 초기화
-    if (!shouldDisconnect && hasDisconnected) {
-      setHasDisconnected(false);
-      console.log("🟢 연결 해제 상태 초기화");
-    }
-  }, [
-    shouldDisconnect,
-    isConnected,
-    hasDisconnected,
-    disconnectClient,
-    currentCount,
-    onFeedback,
-  ]);
 
   // 서버에서 처리된 랜드마크를 MediaPipe 시각화 형식으로 변환
   const convertToMediaPipeFormat = useCallback(
@@ -309,7 +310,8 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
       !isConnected &&
       !isConnecting &&
       isTransmitting && // 전송 중일 때만 연결 시도
-      !hasDisconnected // 연결 해제되지 않았을 때만
+      !hasDisconnected && // 연결 해제되지 않았을 때만
+      !isResting // 🎯 휴식 중이 아닐 때만 연결 시도
     ) {
       // 랜드마크가 감지되고 전송 중일 때만 자동 연결 시도
       console.log("🟢 자동 소켓 연결 시도");
@@ -323,6 +325,7 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
     connect,
     isTransmitting,
     hasDisconnected,
+    isResting, // 🎯 휴식 상태 의존성 추가
   ]);
 
   // 데이터 전송 로직
@@ -331,7 +334,8 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
       !isTransmitting ||
       !isConnected ||
       rawLandmarks.length === 0 ||
-      hasDisconnected
+      hasDisconnected ||
+      isResting // 🎯 휴식 중에는 전송하지 않음
     )
       return;
 
@@ -365,6 +369,7 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
     sendPose,
     lastFrameTime,
     hasDisconnected,
+    isResting, // 🎯 휴식 상태 의존성 추가
   ]);
 
   // 서버 처리 결과 MediaPipe 형식 변환
@@ -408,6 +413,13 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
         </div>
       )}
 
+      {/* 🎯 휴식 상태 표시 */}
+      {isResting && (
+        <div className="absolute top-24 left-0 right-0 mx-auto w-max bg-blue-500 text-white px-4 py-2 rounded-lg shadow-lg z-10">
+          <p className="flex items-center text-sm">😴 휴식 중...</p>
+        </div>
+      )}
+
       {/* 비디오 및 시각화 컴포넌트 */}
       <div className="w-full h-full">
         <WebcamCapture
@@ -439,7 +451,8 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
           {videoElement &&
             showGuideline &&
             processedMediaPipeResults &&
-            !hasDisconnected && (
+            !hasDisconnected &&
+            !isResting && ( // 🎯 휴식 중에는 가이드라인 숨김
               <MediaPipeVisualizer
                 videoElement={videoElement}
                 results={processedMediaPipeResults}
@@ -459,7 +472,8 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
             rawLandmarks.length > 0 &&
             processedResult?.visualizationLandmarks &&
             processedResult.visualizationLandmarks.length > 0 &&
-            !hasDisconnected && (
+            !hasDisconnected &&
+            !isResting && ( // 🎯 휴식 중에는 차이 시각화 숨김
               <PoseDifferenceVisualizer
                 videoElement={videoElement}
                 userLandmarks={rawLandmarks.map((lm) => ({
@@ -505,17 +519,20 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
         )}
 
         {/* 화면 우측 상단에 정확도 표시 - 연결 해제되지 않았을 때만 표시 */}
-        {!hasDisconnected && !mediaPipeLoading && !mediaLoading && (
-          <div className="absolute top-3 right-3 bg-black bg-opacity-70 rounded-lg p-3 text-white">
-            <div className="flex items-center">
-              <span className="mr-2">정확도:</span>
-              <PoseMatchIndicator similarity={similarity} />
+        {!hasDisconnected &&
+          !mediaPipeLoading &&
+          !mediaLoading &&
+          !isResting && (
+            <div className="absolute top-3 right-3 bg-black bg-opacity-70 rounded-lg p-3 text-white">
+              <div className="flex items-center">
+                <span className="mr-2">정확도:</span>
+                <PoseMatchIndicator similarity={similarity} />
+              </div>
+              <div className="text-xs mt-1">
+                랜드마크: {rawLandmarks.length}/33
+              </div>
             </div>
-            <div className="text-xs mt-1">
-              랜드마크: {rawLandmarks.length}/33
-            </div>
-          </div>
-        )}
+          )}
       </div>
     </div>
   );

@@ -59,6 +59,18 @@ export interface ProcessedResult {
   requestId?: string; // 요청 ID
 }
 
+// 🎯 새로 추가: 서버에서 보내는 next 이벤트 데이터 타입
+export interface NextSetInfo {
+  exerciseType: string;
+  current_count: number;
+  exercise_weight: number;
+  set_number: number;
+  next_weight?: number;
+  next_target_count?: number;
+  is_last: boolean;
+  count: number;
+}
+
 // MediaPipeLandmark 인터페이스 확인/추가
 export interface MediaPipeLandmark {
   id: number;
