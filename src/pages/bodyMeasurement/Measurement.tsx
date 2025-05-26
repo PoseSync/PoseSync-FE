@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
 import { useUserStore } from "../../store/useUserStore";
 import { useMediaPipe } from "../../hooks/useMediaPipe";
+import { useBodyAnalysisAudio } from "../../hooks/useBodyAnalysisAudio"; // 🎵 체형분석 음성 훅 추가
 import { cleanupMediaPipe } from "../../utils/mediaPipeSingleton";
 import axios from "axios";
 
@@ -33,7 +34,7 @@ interface AnalysisResponse {
   result: AnalysisResult;
 }
 
-// 컴포넌트 스타일들
+// 기존 styled-components들
 const FullScreen = styled.div`
   width: 3840px;
   height: 2160px;
@@ -64,7 +65,7 @@ const Video = styled.video`
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transform: scaleX(-1); /* 거울 효과 */
+  transform: scaleX(-1);
 `;
 
 const AnalysisOverlay = styled.div`
@@ -172,10 +173,57 @@ const ButtonBox = styled.div`
   margin-top: 130px;
 `;
 
+// 🔍 개선된 전신 감지 오버레이
+const FullBodyGuideOverlay = styled.div`
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 5;
+`;
+
+const GuideTitle = styled.div`
+  font-family: "Pretendard Variable", sans-serif;
+  font-weight: 700;
+  font-size: 64px;
+  color: var(--yellow-400);
+  margin-bottom: 30px;
+  text-align: center;
+`;
+
+const GuideText = styled.div`
+  font-family: "Pretendard Variable", sans-serif;
+  font-weight: 600;
+  font-size: 40px;
+  color: var(--white);
+  margin-bottom: 20px;
+  text-align: center;
+  line-height: 1.4;
+`;
+
+const StabilityIndicator = styled.div<{ $stable: boolean }>`
+  width: 200px;
+  height: 20px;
+  background: ${(props) =>
+    props.$stable ? "var(--green-500)" : "var(--red-400)"};
+  border-radius: 10px;
+  margin: 20px 0;
+  transition: background 0.3s ease;
+`;
+
 const Measurement: React.FC = () => {
   const navigate = useNavigate();
   const height = useUserStore((state) => state.height);
   const phoneNumber = useUserStore((state) => state.phoneNumber);
+
+  // 🎵 체형분석 음성 훅 사용
+  const { playAnalysisStartGuide, stopAllAudio } = useBodyAnalysisAudio();
 
   const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(
     null
@@ -188,7 +236,11 @@ const Measurement: React.FC = () => {
   const [visibleLandmarksCount, setVisibleLandmarksCount] = useState<number>(0);
   const [isCollectingFrames, setIsCollectingFrames] = useState<boolean>(false);
 
-  // 📌 프레임 수집 관련 ref (state 대신 ref 사용)
+  // 🔍 개선된 전신 감지 상태
+  const [bodyStabilityCount, setBodyStabilityCount] = useState<number>(0);
+  const [showFullBodyGuide, setShowFullBodyGuide] = useState<boolean>(true);
+
+  // 📌 프레임 수집 관련 ref
   const frameBufferRef = useRef<{
     landmarks: Landmark[][];
     worldLandmarks: Landmark[][];
@@ -201,17 +253,19 @@ const Measurement: React.FC = () => {
   > | null>(null);
   const analysisTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const collectionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const stabilityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null); // 🔍 안정성 타이머
 
-  // 🔥 로그 출력 제한을 위한 ref 추가
+  // 🔥 로그 출력 제한을 위한 ref
   const logThrottleRef = useRef<number>(0);
 
-  // 분석 상태 추적을 위한 ref 추가
+  // 분석 상태 추적을 위한 ref
   const analysingRef = useRef<boolean>(false);
   const analysisCompletedRef = useRef<boolean>(false);
 
   // 📌 측정 설정 - 10초 동안 수집
-  const COLLECTION_TIME_SECONDS = 10; // 10초 동안 수집
-  const FRAME_COLLECTION_INTERVAL = 200; // 200ms마다 프레임 수집 (총 50프레임)
+  const COLLECTION_TIME_SECONDS = 10;
+  const FRAME_COLLECTION_INTERVAL = 200;
+  const STABILITY_REQUIRED_FRAMES = 15; // 🔍 3초간 안정적으로 감지되어야 함 (15프레임)
 
   // Tasks API MediaPipe 훅 사용
   const {
@@ -241,78 +295,121 @@ const Measurement: React.FC = () => {
     setCountdown(null);
     setFullBodyDetected(false);
     setBodyDetectionState("waiting");
+    setBodyStabilityCount(0); // 🔍 안정성 카운터 리셋
+    setShowFullBodyGuide(true); // 🔍 가이드 다시 표시
 
     // 프레임 수집 관련 상태도 리셋
     setIsCollectingFrames(false);
     frameBufferRef.current = { landmarks: [], worldLandmarks: [] };
 
+    // 🎵 음성 중단
+    stopAllAudio();
+
     // 모든 타이머 제거
-    if (countdownTimerRef.current) {
-      clearInterval(countdownTimerRef.current);
-      countdownTimerRef.current = null;
-    }
-
-    if (fullBodyDetectionTimerRef.current) {
-      clearTimeout(fullBodyDetectionTimerRef.current);
-      fullBodyDetectionTimerRef.current = null;
-    }
-
-    if (analysisTimeoutRef.current) {
-      clearTimeout(analysisTimeoutRef.current);
-      analysisTimeoutRef.current = null;
-    }
-
-    if (collectionTimerRef.current) {
-      clearTimeout(collectionTimerRef.current);
-      collectionTimerRef.current = null;
-    }
-  }, []);
+    [
+      countdownTimerRef,
+      fullBodyDetectionTimerRef,
+      analysisTimeoutRef,
+      collectionTimerRef,
+      stabilityTimerRef,
+    ].forEach((timerRef) => {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
+    });
+  }, [stopAllAudio]);
 
   // 체형 분석 완료 시 세션 스토리지에 완료 상태 저장
   const handleAnalysisComplete = useCallback(
     (result: AnalysisResult): void => {
-      // 체형 분석 완료 상태 저장
       sessionStorage.setItem("bodyAnalysisCompleted", "true");
       analysisCompletedRef.current = true;
 
-      // 결과 페이지로 이동
+      // 🎵 음성 중단
+      stopAllAudio();
+
       navigate("/measurement-results", {
         state: { analysisResult: result },
       });
     },
-    [navigate]
+    [navigate, stopAllAudio]
   );
 
-  // 전신 포즈 감지 여부 확인
+  // 🔍 개선된 전신 포즈 감지 여부 확인
   const isFullBodyVisible = useCallback((landmarks: Landmark[]): boolean => {
     if (landmarks.length < 33) return false;
 
-    const keyJoints = [
+    // 🎯 더 엄격한 키포인트 체크
+    const criticalJoints = [
       11,
-      12,
-      13,
-      14,
-      15,
-      16, // 어깨, 팔꿈치, 손목
+      12, // 양쪽 어깨
       23,
-      24,
+      24, // 양쪽 고관절
       25,
-      26,
+      26, // 양쪽 무릎
       27,
-      28, // 엉덩이, 무릎, 발목
+      28, // 양쪽 발목
     ];
 
-    return keyJoints.every((id) => {
+    const visibleCriticalJoints = criticalJoints.filter((id) => {
       const landmark = landmarks.find((lm) => lm.id === id);
       return (
         landmark &&
         landmark.visibility !== undefined &&
-        landmark.visibility > 0.5
-      );
+        landmark.visibility > 0.7
+      ); // 더 높은 임계값
     });
+
+    // 8개 중 7개 이상 보여야 함
+    if (visibleCriticalJoints.length < 7) return false;
+
+    // 🎯 신체 비율 체크 (전신이 적절히 보이는지)
+    const leftShoulder = landmarks.find((lm) => lm.id === 11);
+    const rightShoulder = landmarks.find((lm) => lm.id === 12);
+    const leftHip = landmarks.find((lm) => lm.id === 23);
+    const rightHip = landmarks.find((lm) => lm.id === 24);
+    const leftAnkle = landmarks.find((lm) => lm.id === 27);
+    const rightAnkle = landmarks.find((lm) => lm.id === 28);
+
+    if (
+      !leftShoulder ||
+      !rightShoulder ||
+      !leftHip ||
+      !rightHip ||
+      !leftAnkle ||
+      !rightAnkle
+    ) {
+      return false;
+    }
+
+    // 어깨 중점과 고관절 중점 계산
+    const shoulderMidY = (leftShoulder.y + rightShoulder.y) / 2;
+    const hipMidY = (leftHip.y + rightHip.y) / 2;
+    const ankleMidY = (leftAnkle.y + rightAnkle.y) / 2;
+
+    // 상체와 하체 길이 비율 체크
+    const upperBodyLength = Math.abs(hipMidY - shoulderMidY);
+    const lowerBodyLength = Math.abs(ankleMidY - hipMidY);
+
+    // 하체가 상체의 최소 80% 이상은 되어야 함 (더 엄격)
+    const bodyRatio = lowerBodyLength / upperBodyLength;
+    if (bodyRatio < 0.8) return false;
+
+    // 🎯 좌우 대칭성 체크
+    const leftBodyLength = Math.abs(leftAnkle.y - leftShoulder.y);
+    const rightBodyLength = Math.abs(rightAnkle.y - rightShoulder.y);
+    const symmetryRatio =
+      Math.min(leftBodyLength, rightBodyLength) /
+      Math.max(leftBodyLength, rightBodyLength);
+
+    // 좌우 길이가 너무 다르면 안됨 (85% 이상 대칭이어야 함)
+    if (symmetryRatio < 0.85) return false;
+
+    return true;
   }, []);
 
-  // 🔥 HTTP API를 사용한 서버 전송 함수
+  // HTTP API를 사용한 서버 전송 함수
   const sendFramesToServer = useCallback(
     async (frames: {
       landmarks: Landmark[][];
@@ -322,7 +419,6 @@ const Measurement: React.FC = () => {
       setAnalyzing(true);
       setBodyDetectionState("analyzing");
 
-      // 🔥 전화번호에서 숫자만 추출
       const numericPhoneNumber = phoneNumber.replace(/[^0-9]/g, "");
 
       console.log("프레임 체형 분석 데이터 전송:", {
@@ -337,7 +433,7 @@ const Measurement: React.FC = () => {
         clearTimeout(analysisTimeoutRef.current);
       }
 
-      // 45초 타임아웃 설정 (프레임 처리 시간 고려)
+      // 45초 타임아웃 설정
       analysisTimeoutRef.current = setTimeout(() => {
         console.log("측정 시간 초과 (45초)");
         resetToInitialState();
@@ -345,7 +441,6 @@ const Measurement: React.FC = () => {
       }, 45000);
 
       try {
-        // 🔥 HTTP API로 체형 분석 요청
         const response = await axios.post<AnalysisResponse>(
           "http://127.0.0.1:5001/api/body-analysis/analyze",
           {
@@ -364,7 +459,6 @@ const Measurement: React.FC = () => {
         console.log("체형 분석 결과:", response.data);
 
         if (response.data.success) {
-          // 체형 분석 완료 상태 저장 및 결과 페이지로 이동
           handleAnalysisComplete(response.data.result);
         } else {
           resetToInitialState();
@@ -373,7 +467,6 @@ const Measurement: React.FC = () => {
       } catch (error) {
         console.error("체형 분석 API 오류:", error);
 
-        // 타임아웃 클리어
         if (analysisTimeoutRef.current) {
           clearTimeout(analysisTimeoutRef.current);
           analysisTimeoutRef.current = null;
@@ -387,20 +480,24 @@ const Measurement: React.FC = () => {
     [phoneNumber, height, handleAnalysisComplete, resetToInitialState]
   );
 
-  // 📌 프레임 수집 시작 함수 (타이머 기반으로 변경)
+  // 📌 프레임 수집 시작 함수
   const startFrameCollection = useCallback((): void => {
     console.log(`🎬 ${COLLECTION_TIME_SECONDS}초 동안 프레임 수집 시작`);
+
+    // 🎵 체형분석 시작 음성 재생
+    playAnalysisStartGuide();
+
     setIsCollectingFrames(true);
-    setAnalyzing(true); // 📌 로티 애니메이션 시작
+    setAnalyzing(true);
     frameBufferRef.current = { landmarks: [], worldLandmarks: [] };
     setBodyDetectionState("collecting");
+    setShowFullBodyGuide(false); // 🔍 가이드 숨김
 
     let collectionCount = 0;
     const maxFrames = Math.floor(
       (COLLECTION_TIME_SECONDS * 1000) / FRAME_COLLECTION_INTERVAL
-    ); // 최대 50프레임
+    );
 
-    // 200ms마다 프레임 수집
     const collectFrame = () => {
       if (
         !rawLandmarks ||
@@ -408,7 +505,6 @@ const Measurement: React.FC = () => {
         !rawWorldLandmarks ||
         rawWorldLandmarks.length === 0
       ) {
-        // 랜드마크가 없으면 다시 시도
         if (collectionCount < maxFrames) {
           collectionTimerRef.current = setTimeout(
             collectFrame,
@@ -418,7 +514,6 @@ const Measurement: React.FC = () => {
         return;
       }
 
-      // 현재 랜드마크 수집
       const formattedLandmarks: Landmark[] = rawLandmarks.map((lm) => ({
         id: lm.id,
         x: lm.x,
@@ -437,7 +532,6 @@ const Measurement: React.FC = () => {
         })
       );
 
-      // 버퍼에 추가
       frameBufferRef.current = {
         landmarks: [...frameBufferRef.current.landmarks, formattedLandmarks],
         worldLandmarks: [
@@ -449,51 +543,40 @@ const Measurement: React.FC = () => {
       collectionCount++;
       console.log(`프레임 수집: ${collectionCount}/${maxFrames}`);
 
-      // 아직 더 수집할 프레임이 있으면 계속
       if (collectionCount < maxFrames) {
         collectionTimerRef.current = setTimeout(
           collectFrame,
           FRAME_COLLECTION_INTERVAL
         );
       } else {
-        // 수집 완료
         console.log(
           `✅ ${COLLECTION_TIME_SECONDS}초 프레임 수집 완료! 분석 시작...`
         );
         setIsCollectingFrames(false);
 
-        // 수집된 프레임으로 서버 전송 (분석 상태 유지)
         setTimeout(() => {
           sendFramesToServer(frameBufferRef.current);
-        }, 500); // 0.5초 후 전송
+        }, 500);
       }
     };
 
-    // 첫 번째 프레임 수집 시작
     collectFrame();
-  }, [rawLandmarks, rawWorldLandmarks, sendFramesToServer]);
+  }, [
+    rawLandmarks,
+    rawWorldLandmarks,
+    sendFramesToServer,
+    playAnalysisStartGuide,
+  ]);
 
-  // 카운트다운 시작
-  const startCountdown = useCallback((): void => {
-    setCountdown(3);
+  // 🔍 개선된 자동 측정 시작 로직
+  const startAutoMeasurement = useCallback((): void => {
+    console.log("🎯 자동 체형분석 시작!");
+    setBodyDetectionState("starting");
+    setShowFullBodyGuide(false);
 
-    if (countdownTimerRef.current) {
-      clearInterval(countdownTimerRef.current);
-    }
-
-    countdownTimerRef.current = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev === null || prev <= 1) {
-          if (countdownTimerRef.current) {
-            clearInterval(countdownTimerRef.current);
-            countdownTimerRef.current = null;
-          }
-          // 📌 카운트다운 종료 후 프레임 수집 시작
-          startFrameCollection();
-          return null;
-        }
-        return prev - 1;
-      });
+    // 1초 후 측정 시작
+    setTimeout(() => {
+      startFrameCollection();
     }, 1000);
   }, [startFrameCollection]);
 
@@ -532,41 +615,35 @@ const Measurement: React.FC = () => {
     setupCamera();
 
     return () => {
-      if (countdownTimerRef.current) {
-        clearInterval(countdownTimerRef.current);
-        countdownTimerRef.current = null;
-      }
-
-      if (fullBodyDetectionTimerRef.current) {
-        clearTimeout(fullBodyDetectionTimerRef.current);
-        fullBodyDetectionTimerRef.current = null;
-      }
-
-      if (analysisTimeoutRef.current) {
-        clearTimeout(analysisTimeoutRef.current);
-        analysisTimeoutRef.current = null;
-      }
-
-      if (collectionTimerRef.current) {
-        clearTimeout(collectionTimerRef.current);
-        collectionTimerRef.current = null;
-      }
+      // 모든 타이머 정리
+      [
+        countdownTimerRef,
+        fullBodyDetectionTimerRef,
+        analysisTimeoutRef,
+        collectionTimerRef,
+        stabilityTimerRef,
+      ].forEach((timerRef) => {
+        if (timerRef.current) {
+          clearTimeout(timerRef.current);
+          timerRef.current = null;
+        }
+      });
 
       if (stream) {
         stream.getTracks().forEach((track) => track.stop());
       }
 
-      // 체형 분석 중단 시 완료 상태 제거
       if (analysingRef.current === false && !analysisCompletedRef.current) {
         sessionStorage.removeItem("bodyAnalysisCompleted");
       }
 
-      // MediaPipe 정리
+      // 🎵 음성 정리
+      stopAllAudio();
       cleanupMediaPipe();
     };
-  }, [handleVideoElementReady]);
+  }, [handleVideoElementReady, stopAllAudio]);
 
-  // MediaPipe 훅에서 받은 랜드마크 처리
+  // 🔍 개선된 MediaPipe 랜드마크 처리
   useEffect(() => {
     if (
       !rawLandmarks ||
@@ -576,20 +653,20 @@ const Measurement: React.FC = () => {
     )
       return;
 
-    // 🔥 가시성 높은 랜드마크 개수 계산
     const visibleCount = rawLandmarks.filter(
       (lm) => lm.visibility !== undefined && lm.visibility > 0.5
     ).length;
     setVisibleLandmarksCount(visibleCount);
 
-    // 🔥 로그 출력 제한 (1초에 한 번만)
     const now = Date.now();
     if (now - logThrottleRef.current > 1000) {
       console.log(`감지된 랜드마크: ${visibleCount}/33 (가시성 > 0.5)`);
       logThrottleRef.current = now;
     }
 
-    // rawLandmarks를 Landmark[] 타입으로 변환
+    // 프레임 수집 중이거나 분석 중이면 전신 감지 로직 건너뛰기
+    if (isCollectingFrames || analyzing) return;
+
     const formattedLandmarks: Landmark[] = rawLandmarks.map((lm) => ({
       id: lm.id,
       x: lm.x,
@@ -598,44 +675,48 @@ const Measurement: React.FC = () => {
       visibility: lm.visibility,
     }));
 
-    // 프레임 수집 중이 아니고, 분석 중이 아니고, 카운트다운 중이 아닐 때만 전신 감지 로직 실행
-    if (!isCollectingFrames && !analyzing && countdown === null) {
-      // 전신 감지 여부 확인
-      const bodyVisible = isFullBodyVisible(formattedLandmarks);
+    const bodyVisible = isFullBodyVisible(formattedLandmarks);
 
-      // 전신 감지 상태 업데이트
-      if (bodyVisible && !fullBodyDetected) {
-        setBodyDetectionState("detected");
+    if (bodyVisible) {
+      // 🔍 연속적으로 전신이 감지되는 경우 안정성 카운터 증가
+      setBodyStabilityCount((prev) => {
+        const newCount = prev + 1;
+        console.log(
+          `🎯 전신 감지 안정성: ${newCount}/${STABILITY_REQUIRED_FRAMES}`
+        );
+        return newCount;
+      });
 
-        // 전신이 감지되면 3초 유지되는지 확인 후 카운트다운 시작
-        if (fullBodyDetectionTimerRef.current) {
-          clearTimeout(fullBodyDetectionTimerRef.current);
-        }
+      setBodyDetectionState("detected");
 
-        fullBodyDetectionTimerRef.current = setTimeout(() => {
-          setFullBodyDetected(true);
-          setBodyDetectionState("stable");
-          startCountdown();
-        }, 3000);
-      } else if (!bodyVisible) {
-        // 전신이 감지되지 않으면 타이머 초기화
-        setBodyDetectionState("waiting");
-        if (fullBodyDetectionTimerRef.current) {
-          clearTimeout(fullBodyDetectionTimerRef.current);
-          fullBodyDetectionTimerRef.current = null;
-        }
-        setFullBodyDetected(false);
+      // 🔍 충분히 안정적으로 감지되면 자동 측정 시작
+      if (
+        bodyStabilityCount >= STABILITY_REQUIRED_FRAMES &&
+        !fullBodyDetected
+      ) {
+        console.log("🎯 전신 안정적으로 감지됨 - 자동 측정 시작!");
+        setFullBodyDetected(true);
+        setBodyStabilityCount(0);
+        startAutoMeasurement();
       }
+    } else {
+      // 전신이 감지되지 않으면 안정성 카운터 리셋
+      if (bodyStabilityCount > 0) {
+        console.log("🔄 전신 감지 중단 - 안정성 카운터 리셋");
+        setBodyStabilityCount(0);
+      }
+      setBodyDetectionState("waiting");
+      setFullBodyDetected(false);
     }
   }, [
     rawLandmarks,
     rawWorldLandmarks,
-    fullBodyDetected,
-    analyzing,
-    countdown,
     isCollectingFrames,
+    analyzing,
     isFullBodyVisible,
-    startCountdown,
+    bodyStabilityCount,
+    fullBodyDetected,
+    startAutoMeasurement,
   ]);
 
   // 체형 분석 시작 함수 (수동 시작용)
@@ -658,18 +739,20 @@ const Measurement: React.FC = () => {
     resetToInitialState();
   };
 
-  // 상태 기반 메시지 선택
+  // 🔍 상태 기반 메시지 선택 (개선됨)
   const getStatusMessage = (): string => {
     if (analyzing && !isCollectingFrames) {
       return "신체 측정 분석 중입니다. 잠시만 기다려주세요.";
     } else if (isCollectingFrames) {
       return "측정 중입니다. 자세를 유지해 주세요.";
-    } else if (countdown !== null) {
-      return "잠시 자세를 유지해 주세요. 곧 측정이 시작됩니다.";
+    } else if (bodyDetectionState === "starting") {
+      return "곧 측정이 시작됩니다. 자세를 유지해 주세요.";
     } else if (bodyDetectionState === "detected") {
-      return "전신이 감지되었습니다. 자세를 유지해 주세요.";
-    } else if (bodyDetectionState === "stable") {
-      return "좋습니다! 자세를 계속 유지해 주세요.";
+      const progress = Math.min(
+        (bodyStabilityCount / STABILITY_REQUIRED_FRAMES) * 100,
+        100
+      );
+      return `전신 감지 중... (${Math.round(progress)}%)`;
     } else {
       return "전신이 보이도록 카메라 앞에 서주세요.";
     }
@@ -680,10 +763,36 @@ const Measurement: React.FC = () => {
       <CameraBox>
         <Video ref={videoRef} autoPlay playsInline muted />
 
+        {/* 🔍 개선된 전신 감지 가이드 오버레이 */}
+        {showFullBodyGuide && !analyzing && !isCollectingFrames && (
+          <FullBodyGuideOverlay>
+            <GuideTitle>체형 분석 준비</GuideTitle>
+            <GuideText>
+              카메라에서 2m 정도 떨어져서
+              <br />
+              전신이 모두 보이도록 서주세요
+            </GuideText>
+            <StabilityIndicator $stable={bodyStabilityCount > 5} />
+            <GuideText style={{ fontSize: "32px", color: "var(--gray-300)" }}>
+              {bodyDetectionState === "detected"
+                ? `안정성 확인 중... ${Math.round(
+                    (bodyStabilityCount / STABILITY_REQUIRED_FRAMES) * 100
+                  )}%`
+                : "전신을 인식하는 중..."}
+            </GuideText>
+          </FullBodyGuideOverlay>
+        )}
+
         {/* 가이드 텍스트 */}
         <BodyGuideText>
           {bodyDetectionState === "waiting"
             ? "전신이 보이도록 카메라 앞에 서주세요"
+            : bodyDetectionState === "detected"
+            ? `전신 감지 중... (${Math.round(
+                (bodyStabilityCount / STABILITY_REQUIRED_FRAMES) * 100
+              )}%)`
+            : bodyDetectionState === "starting"
+            ? "측정 준비 중..."
             : isCollectingFrames
             ? "측정 중 - 자세를 유지해 주세요"
             : analyzing

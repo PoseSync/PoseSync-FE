@@ -8,6 +8,7 @@ import { useExerciseStore } from "../../store/useExerciseStore";
 import { useUserStore } from "../../store/useUserStore";
 import { exercises, Exercise } from "../../data/exercises";
 import { NextSetInfo } from "../../types"; // NextSetInfo import
+import { useAudioGuide } from "../../hooks/useAudioGuide"; // 🎵 음성 안내 훅
 
 const FullScreen = styled.div`
   width: 3840px;
@@ -318,7 +319,10 @@ const RealTimeExercisePage: React.FC = () => {
   );
   const phoneNumber = useUserStore((state) => state.phoneNumber);
   const setUserPhoneNumber = useUserStore((state) => state.setPhoneNumber);
-  const videoContainerRef = useRef<HTMLDivElement>(null); // 비디오 컨테이너 참조 추가
+  const videoContainerRef = useRef<HTMLDivElement>(null);
+
+  // 🎵 음성 안내 훅 사용
+  const { playStartGuide, playCountGuide, stopAllAudio } = useAudioGuide();
 
   // 테스트용 전화번호 설정
   const testPhoneNumber = "01012345678";
@@ -327,11 +331,8 @@ const RealTimeExercisePage: React.FC = () => {
   const [isTransmitting, setIsTransmitting] = useState(false);
   const [count, setCount] = useState(0);
   const [feedbacks, setFeedbacks] = useState<string[]>([]);
-  // 가정된 정확도 값 (실제로는 서버에서 받아올 수 있습니다)
   const [accuracy, setAccuracy] = useState<number>(75);
-  // 3D 모드를 사용하지 않으므로 항상 "2d"로 고정
   const visualizationMode = "2d";
-  // 전체화면 상태
   const [isFullscreen, setIsFullscreen] = useState(false);
 
   // 🎯 세트별 순환 관련 상태
@@ -345,6 +346,9 @@ const RealTimeExercisePage: React.FC = () => {
   // 🆕 운동 시작 준비 카운트다운 상태 추가
   const [isStartCountdown, setIsStartCountdown] = useState(false);
   const [startCountdown, setStartCountdown] = useState(0);
+
+  // 🎵 이전 횟수 추적 (중복 음성 방지)
+  const [prevCount, setPrevCount] = useState(0);
 
   // 서버 변수명과 운동 이름 매핑
   const exerciseTypeMapping: Record<string, string> = {
@@ -366,6 +370,9 @@ const RealTimeExercisePage: React.FC = () => {
     (setInfo: NextSetInfo) => {
       console.log("🏁 세트 완료:", setInfo);
 
+      // 🎵 음성 중단
+      stopAllAudio();
+
       // 1. 전송 중단 (disconnect_client 패킷 자동 전송)
       setIsTransmitting(false);
 
@@ -378,7 +385,7 @@ const RealTimeExercisePage: React.FC = () => {
       } else {
         // 다음 세트가 있음 - 10초 휴식 후 자동 시작
         setIsResting(true);
-        setRestCountdown(10); // 🆕 10초로 변경
+        setRestCountdown(10);
 
         // 🎯 null 체크 추가: set_number가 null이 아닐 때만 설정
         if (setInfo.set_number !== null) {
@@ -386,6 +393,7 @@ const RealTimeExercisePage: React.FC = () => {
         }
 
         setCount(0); // 카운트 리셋
+        setPrevCount(0); // 🎵 이전 카운트 리셋
 
         // 🎯 null 체크 추가: next_weight와 next_target_count가 null이 아닐 때만 설정
         if (
@@ -398,7 +406,6 @@ const RealTimeExercisePage: React.FC = () => {
           });
         } else {
           console.log("⚠️ 다음 세트 정보가 null입니다. 기본 세트 정보 사용.");
-          // null인 경우 현재 세트 정보 유지하거나 기본값 사용
           setNextSetInfo(null);
         }
 
@@ -410,7 +417,7 @@ const RealTimeExercisePage: React.FC = () => {
         );
 
         // 10초 카운트다운
-        let currentCountdown = 10; // 🆕 10초로 변경
+        let currentCountdown = 10;
         const countdownInterval = setInterval(() => {
           currentCountdown--;
           setRestCountdown(currentCountdown);
@@ -418,25 +425,22 @@ const RealTimeExercisePage: React.FC = () => {
           if (currentCountdown <= 0) {
             clearInterval(countdownInterval);
             setIsResting(false);
-            setIsTransmitting(true); // 🟢 다음 세트 자동 시작
+            setIsTransmitting(true);
             handleFeedback(`${currentSetNumber}세트 시작!`);
           }
         }, 1000);
       }
     },
-    [navigate, currentSet] // currentSet 의존성 추가
+    [navigate, currentSet, stopAllAudio] // stopAllAudio 의존성 추가
   );
 
-  // 피드백 추가 함수 - useCallback으로 메모이제이션하여 의존성 배열에 안전하게 사용
+  // 피드백 추가 함수
   const handleFeedback = useCallback((message: string) => {
-    // 새 피드백을 추가하고 최대 10개까지만 유지 (너무 많아지지 않도록)
     setFeedbacks((prev) => {
       const newFeedbacks = [...prev, message];
-      return newFeedbacks.slice(-10); // 최근 10개만 유지
+      return newFeedbacks.slice(-10);
     });
 
-    // 피드백 메시지에 기반한 정확도 분석 (예시)
-    // 실제로는 서버에서 랜드마크 비교 결과에 따라 정확도가 계산되어야 함
     if (message.includes("자세가 정확합니다") || message.includes("좋습니다")) {
       setAccuracy((prev) => Math.min(prev + 5, 100));
     } else if (message.includes("수정") || message.includes("조정")) {
@@ -446,16 +450,14 @@ const RealTimeExercisePage: React.FC = () => {
 
   // 🎯 ✅ 자동 세트 종료 로직 추가
   useEffect(() => {
-    // 현재 세트 정보 가져오기
     const currentSetData =
       nextSetInfo ||
       (sets && sets.length > 0 && currentSet <= sets.length
         ? sets[currentSet - 1]
         : { weight: 0, reps: 0 });
 
-    const targetReps = currentSetData.reps || 5; // 기본값 5
+    const targetReps = currentSetData.reps || 5;
 
-    // 목표 횟수 달성 시 자동으로 세트 종료
     if (
       count >= targetReps &&
       isTransmitting &&
@@ -466,10 +468,8 @@ const RealTimeExercisePage: React.FC = () => {
         `🎯 목표 횟수 달성! (${count}/${targetReps}) - 자동 세트 종료`
       );
 
-      // 0.5초 후 자동 종료 (사용자가 완료를 인식할 수 있는 시간 제공)
       const autoEndTimeout = setTimeout(() => {
         setIsTransmitting(false);
-        // disconnectClient는 PoseDetector에서 자동으로 호출됨
       }, 500);
 
       return () => clearTimeout(autoEndTimeout);
@@ -484,6 +484,47 @@ const RealTimeExercisePage: React.FC = () => {
     isStartCountdown,
   ]);
 
+  // 🎵 횟수 변화 감지 및 음성 재생
+  useEffect(() => {
+    // 운동 중이고, 횟수가 증가했을 때만 음성 재생
+    if (
+      isTransmitting &&
+      !isResting &&
+      !isStartCountdown &&
+      count > prevCount &&
+      count > 0
+    ) {
+      const currentSetData =
+        nextSetInfo ||
+        (sets && sets.length > 0 && currentSet <= sets.length
+          ? sets[currentSet - 1]
+          : { weight: 0, reps: 5 });
+
+      const targetReps = currentSetData.reps || 5;
+
+      console.log(`🎵 음성 재생: ${count}회 (목표: ${targetReps}회)`);
+
+      // 0.5초 지연 후 음성 재생 (운동 완료 후 음성이 나오도록)
+      const audioTimeout = setTimeout(() => {
+        playCountGuide(count, targetReps);
+      }, 500);
+
+      setPrevCount(count);
+
+      return () => clearTimeout(audioTimeout);
+    }
+  }, [
+    count,
+    prevCount,
+    isTransmitting,
+    isResting,
+    isStartCountdown,
+    nextSetInfo,
+    sets,
+    currentSet,
+    playCountGuide,
+  ]);
+
   // URL 파라미터 처리
   useEffect(() => {
     const searchParams = new URLSearchParams(location.search);
@@ -492,29 +533,24 @@ const RealTimeExercisePage: React.FC = () => {
 
     console.log("URL 파라미터:", { urlExerciseType, urlPhoneNumber });
 
-    // URL에서 전화번호가 있으면 설정
     if (urlPhoneNumber && urlPhoneNumber !== phoneNumber) {
       console.log("URL에서 전화번호 설정:", urlPhoneNumber);
       setUserPhoneNumber(urlPhoneNumber);
     }
 
-    // URL에서 운동 타입이 있고, 현재 선택된 운동이 없거나 다르면 설정
     if (urlExerciseType) {
       const exerciseName = exerciseTypeMapping[urlExerciseType];
 
       if (exerciseName) {
-        // exercises 배열에서 해당 운동 찾기
         const targetExercise = exercises.find((ex) => ex.name === exerciseName);
 
         if (targetExercise) {
-          // 현재 선택된 운동과 다르거나 없으면 설정
           if (!exercise || exercise.name !== targetExercise.name) {
             console.log(
               `URL 파라미터로 운동 설정: ${targetExercise.name} (${urlExerciseType})`
             );
             setSelectedExercise(targetExercise);
 
-            // 기본 세트 설정 (1세트, 5kg, 5회)
             if (!sets || sets.length === 0) {
               setSetsGlobal([{ weight: 5, reps: 5 }]);
               console.log("기본 세트 설정: 5kg x 5회");
@@ -543,7 +579,6 @@ const RealTimeExercisePage: React.FC = () => {
   // 전체화면 토글 함수
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
-      // 전체화면으로 전환
       if (
         videoContainerRef.current &&
         videoContainerRef.current.requestFullscreen
@@ -558,7 +593,6 @@ const RealTimeExercisePage: React.FC = () => {
           });
       }
     } else {
-      // 전체화면 종료
       if (document.exitFullscreen) {
         document
           .exitFullscreen()
@@ -590,7 +624,6 @@ const RealTimeExercisePage: React.FC = () => {
     console.log("sets:", sets);
     console.log("phoneNumber:", phoneNumber);
 
-    // URL 파라미터로 운동이 설정되는 경우 리다이렉트하지 않음
     const searchParams = new URLSearchParams(location.search);
     const urlExerciseType = searchParams.get("exercise");
 
@@ -599,21 +632,21 @@ const RealTimeExercisePage: React.FC = () => {
       navigate("/exercisesetup");
       return;
     }
-  }, [exercise, sets, phoneNumber, navigate, location.search]);
 
-  // 카운트 업데이트 콜백 - useCallback으로 메모이제이션
+    // 🎵 컴포넌트 언마운트 시 음성 정리
+    return () => {
+      stopAllAudio();
+    };
+  }, [exercise, sets, phoneNumber, navigate, location.search, stopAllAudio]);
+
+  // 카운트 업데이트 콜백
   const handleCountUpdate = useCallback((newCount: number) => {
-    // 소켓 통신으로부터 받은 카운트 값을 사용
     setCount(newCount);
-
-    // 세트 완료는 서버에서 next 이벤트로 처리되므로
-    // 여기서는 단순히 카운트만 업데이트
   }, []);
 
-  // 🆕 전송 상태 토글 - 10초 카운트다운 추가
+  // 🆕 전송 상태 토글 - 10초 카운트다운 + 🎵 음성 안내 추가
   const toggleTransmission = () => {
     if (isResting || isStartCountdown) {
-      // 휴식 중이거나 시작 카운트다운 중에는 버튼 비활성화
       return;
     }
 
@@ -628,6 +661,11 @@ const RealTimeExercisePage: React.FC = () => {
 
       handleFeedback("10초 후 운동이 시작됩니다. 준비하세요!");
 
+      // 🎵 7초 후 시작 안내 음성 재생 (10초 카운트다운에서 3초 남겨두고)
+      const startAudioTimeout = setTimeout(() => {
+        playStartGuide();
+      }, 7000); // 7초 후 "운동을 시작하겠습니다" 음성 재생
+
       // 10초 카운트다운
       let currentCountdown = 10;
       const countdownInterval = setInterval(() => {
@@ -636,8 +674,9 @@ const RealTimeExercisePage: React.FC = () => {
 
         if (currentCountdown <= 0) {
           clearInterval(countdownInterval);
+          clearTimeout(startAudioTimeout); // 타임아웃 정리
           setIsStartCountdown(false);
-          setIsTransmitting(true); // 🟢 실제 전송 시작
+          setIsTransmitting(true);
 
           // 피드백 및 정확도 초기화
           setAccuracy(75);
@@ -645,21 +684,32 @@ const RealTimeExercisePage: React.FC = () => {
           handleFeedback("운동 시작! 자세를 취해주세요.");
         }
       }, 1000);
+
+      // 클린업 함수에서 타이머들 정리
+      return () => {
+        clearTimeout(startAudioTimeout);
+        clearInterval(countdownInterval);
+      };
     } else {
       // 전송을 중단하는 경우
       console.log("🔴 전송 중단 - 사용자가 수동으로 중지");
+
+      // 🎵 음성 중단
+      stopAllAudio();
+
       setIsTransmitting(false);
 
       // 피드백 및 정확도 초기화
       setFeedbacks([]);
       setAccuracy(75);
+      setPrevCount(0); // 🎵 이전 카운트 리셋
 
       // 피드백 메시지 추가
       handleFeedback("운동이 중단되었습니다. 결과가 저장됩니다.");
     }
   };
 
-  // 현재 세트 정보 (다음 세트 정보가 있으면 그것을 사용, 없으면 기본 세트 정보 사용)
+  // 현재 세트 정보
   const currentSetData =
     nextSetInfo ||
     (sets && sets.length > 0 && currentSet <= sets.length
@@ -668,13 +718,14 @@ const RealTimeExercisePage: React.FC = () => {
 
   // 운동 선택으로 돌아가기
   const handleGoBackToExerciseSelection = () => {
+    // 🎵 음성 중단
+    stopAllAudio();
     navigate("/startexercises");
   };
 
-  // 운동 유형 매핑 함수 수정
+  // 운동 유형 매핑 함수
   const getExerciseType = useCallback(
     (exerciseData: Exercise | null): string => {
-      // URL 파라미터 우선 확인
       const searchParams = new URLSearchParams(location.search);
       const urlExerciseType = searchParams.get("exercise");
 
@@ -683,13 +734,11 @@ const RealTimeExercisePage: React.FC = () => {
         return urlExerciseType;
       }
 
-      // 기존 매핑 로직
       if (!exerciseData) {
         console.warn("운동 정보가 없습니다. 기본값 'squat'로 설정합니다.");
         return "squat";
       }
 
-      // 운동 이름 기반 매핑
       if (exerciseData.name === "바벨 스쿼트") return "squat";
       if (exerciseData.name === "숄더 프레스") return "dumbbell_shoulder_press";
       if (exerciseData.name === "런지") return "lunge";
@@ -729,7 +778,6 @@ const RealTimeExercisePage: React.FC = () => {
     );
   }
 
-  // 운동이 준비중인 경우 - ExerciseSetupPage에서 이미 처리되므로 여기서는 중복 체크
   if (exercise.available === false) {
     return (
       <FullScreen>
@@ -783,11 +831,11 @@ const RealTimeExercisePage: React.FC = () => {
                 visualizationMode={visualizationMode}
                 onCountUpdate={handleCountUpdate}
                 onFeedback={handleFeedback}
-                onSetComplete={handleSetComplete} // 🎯 세트 완료 콜백
+                onSetComplete={handleSetComplete}
                 isTransmitting={isTransmitting}
-                isResting={isResting} // 🎯 휴식 상태 전달
-                isStartCountdown={isStartCountdown} // 🆕 시작 카운트다운 상태 전달
-                startCountdown={startCountdown} // 🆕 시작 카운트다운 값 전달
+                isResting={isResting}
+                isStartCountdown={isStartCountdown}
+                startCountdown={startCountdown}
               />
 
               {/* 🎯 휴식 중 오버레이 */}
@@ -799,7 +847,7 @@ const RealTimeExercisePage: React.FC = () => {
                 </RestOverlay>
               )}
 
-              {/* 전체화면 버튼 추가 */}
+              {/* 전체화면 버튼 */}
               <FullscreenButton onClick={toggleFullscreen}>
                 {isFullscreen ? "전체화면 종료" : "전체화면"}
               </FullscreenButton>
@@ -847,7 +895,6 @@ const RealTimeExercisePage: React.FC = () => {
               <FeedbackContainer>
                 <FeedbackTitle>실시간 피드백</FeedbackTitle>
                 {feedbacks.map((feedback, index) => {
-                  // 중요한 피드백 판단 (예: 정확도 관련 피드백이나 세트 완료 메시지 등)
                   const isImportant =
                     feedback.includes("자세가 크게 벗어났습니다") ||
                     feedback.includes("세트 완료") ||
