@@ -334,13 +334,17 @@ const RealTimeExercisePage: React.FC = () => {
   // 전체화면 상태
   const [isFullscreen, setIsFullscreen] = useState(false);
 
-  // 🎯 새로 추가: 세트별 순환 관련 상태
+  // 🎯 세트별 순환 관련 상태
   const [isResting, setIsResting] = useState(false);
   const [restCountdown, setRestCountdown] = useState(0);
   const [nextSetInfo, setNextSetInfo] = useState<{
     weight: number;
     reps: number;
   } | null>(null);
+
+  // 🆕 운동 시작 준비 카운트다운 상태 추가
+  const [isStartCountdown, setIsStartCountdown] = useState(false);
+  const [startCountdown, setStartCountdown] = useState(0);
 
   // 서버 변수명과 운동 이름 매핑
   const exerciseTypeMapping: Record<string, string> = {
@@ -357,7 +361,7 @@ const RealTimeExercisePage: React.FC = () => {
     incline_bench_press: "인클라인 벤치프레스",
   };
 
-  // 🎯 세트 완료 처리 함수 - null 체크 로직 추가
+  // 🎯 세트 완료 처리 함수 - 10초 휴식으로 변경
   const handleSetComplete = useCallback(
     (setInfo: NextSetInfo) => {
       console.log("🏁 세트 완료:", setInfo);
@@ -372,9 +376,9 @@ const RealTimeExercisePage: React.FC = () => {
           navigate("/completed");
         }, 3000);
       } else {
-        // 다음 세트가 있음 - 3초 휴식 후 자동 시작
+        // 다음 세트가 있음 - 10초 휴식 후 자동 시작
         setIsResting(true);
-        setRestCountdown(3);
+        setRestCountdown(10); // 🆕 10초로 변경
 
         // 🎯 null 체크 추가: set_number가 null이 아닐 때만 설정
         if (setInfo.set_number !== null) {
@@ -402,11 +406,11 @@ const RealTimeExercisePage: React.FC = () => {
         handleFeedback(
           `${
             currentSetNumber - 1
-          }세트 완료! 3초 후 ${currentSetNumber}세트 시작합니다.`
+          }세트 완료! 10초 후 ${currentSetNumber}세트 시작합니다.`
         );
 
-        // 3초 카운트다운
-        let currentCountdown = 3;
+        // 10초 카운트다운
+        let currentCountdown = 10; // 🆕 10초로 변경
         const countdownInterval = setInterval(() => {
           currentCountdown--;
           setRestCountdown(currentCountdown);
@@ -439,6 +443,46 @@ const RealTimeExercisePage: React.FC = () => {
       setAccuracy((prev) => Math.max(prev - 3, 0));
     }
   }, []);
+
+  // 🎯 ✅ 자동 세트 종료 로직 추가
+  useEffect(() => {
+    // 현재 세트 정보 가져오기
+    const currentSetData =
+      nextSetInfo ||
+      (sets && sets.length > 0 && currentSet <= sets.length
+        ? sets[currentSet - 1]
+        : { weight: 0, reps: 0 });
+
+    const targetReps = currentSetData.reps || 5; // 기본값 5
+
+    // 목표 횟수 달성 시 자동으로 세트 종료
+    if (
+      count >= targetReps &&
+      isTransmitting &&
+      !isResting &&
+      !isStartCountdown
+    ) {
+      console.log(
+        `🎯 목표 횟수 달성! (${count}/${targetReps}) - 자동 세트 종료`
+      );
+
+      // 0.5초 후 자동 종료 (사용자가 완료를 인식할 수 있는 시간 제공)
+      const autoEndTimeout = setTimeout(() => {
+        setIsTransmitting(false);
+        // disconnectClient는 PoseDetector에서 자동으로 호출됨
+      }, 500);
+
+      return () => clearTimeout(autoEndTimeout);
+    }
+  }, [
+    count,
+    currentSet,
+    sets,
+    nextSetInfo,
+    isTransmitting,
+    isResting,
+    isStartCountdown,
+  ]);
 
   // URL 파라미터 처리
   useEffect(() => {
@@ -566,19 +610,45 @@ const RealTimeExercisePage: React.FC = () => {
     // 여기서는 단순히 카운트만 업데이트
   }, []);
 
-  // 전송 상태 토글 (수정된 부분)
+  // 🆕 전송 상태 토글 - 10초 카운트다운 추가
   const toggleTransmission = () => {
-    if (isResting) {
-      // 휴식 중에는 버튼 비활성화
+    if (isResting || isStartCountdown) {
+      // 휴식 중이거나 시작 카운트다운 중에는 버튼 비활성화
       return;
     }
 
     const wasTransmitting = isTransmitting;
-    setIsTransmitting((prev) => !prev);
 
-    if (wasTransmitting) {
-      // 전송을 중단하는 경우 - disconnect_client 패킷 전송
+    if (!wasTransmitting) {
+      // 전송을 시작하는 경우 - 10초 카운트다운 시작
+      console.log("🟡 운동 시작 카운트다운 시작");
+
+      setIsStartCountdown(true);
+      setStartCountdown(10);
+
+      handleFeedback("10초 후 운동이 시작됩니다. 준비하세요!");
+
+      // 10초 카운트다운
+      let currentCountdown = 10;
+      const countdownInterval = setInterval(() => {
+        currentCountdown--;
+        setStartCountdown(currentCountdown);
+
+        if (currentCountdown <= 0) {
+          clearInterval(countdownInterval);
+          setIsStartCountdown(false);
+          setIsTransmitting(true); // 🟢 실제 전송 시작
+
+          // 피드백 및 정확도 초기화
+          setAccuracy(75);
+          setFeedbacks([]);
+          handleFeedback("운동 시작! 자세를 취해주세요.");
+        }
+      }, 1000);
+    } else {
+      // 전송을 중단하는 경우
       console.log("🔴 전송 중단 - 사용자가 수동으로 중지");
+      setIsTransmitting(false);
 
       // 피드백 및 정확도 초기화
       setFeedbacks([]);
@@ -586,16 +656,6 @@ const RealTimeExercisePage: React.FC = () => {
 
       // 피드백 메시지 추가
       handleFeedback("운동이 중단되었습니다. 결과가 저장됩니다.");
-    } else {
-      // 전송을 시작하는 경우
-      console.log("🟢 전송 시작");
-
-      // 피드백 및 정확도 초기화
-      setAccuracy(75);
-      setFeedbacks([]);
-
-      // 피드백 메시지 추가
-      handleFeedback("운동 전송을 시작합니다. 자세를 취해주세요.");
     }
   };
 
@@ -726,6 +786,8 @@ const RealTimeExercisePage: React.FC = () => {
                 onSetComplete={handleSetComplete} // 🎯 세트 완료 콜백
                 isTransmitting={isTransmitting}
                 isResting={isResting} // 🎯 휴식 상태 전달
+                isStartCountdown={isStartCountdown} // 🆕 시작 카운트다운 상태 전달
+                startCountdown={startCountdown} // 🆕 시작 카운트다운 값 전달
               />
 
               {/* 🎯 휴식 중 오버레이 */}
@@ -768,10 +830,12 @@ const RealTimeExercisePage: React.FC = () => {
                 {/* 전송 버튼 */}
                 <TransmitButton
                   $active={isTransmitting}
-                  $disabled={isResting}
+                  $disabled={isResting || isStartCountdown}
                   onClick={toggleTransmission}
                 >
-                  {isResting
+                  {isStartCountdown
+                    ? "준비 중..."
+                    : isResting
                     ? "휴식 중..."
                     : isTransmitting
                     ? "전송 중지"
@@ -791,7 +855,8 @@ const RealTimeExercisePage: React.FC = () => {
                     feedback.includes("매우 정확합니다") ||
                     feedback.includes("중단되었습니다") ||
                     feedback.includes("시작합니다") ||
-                    feedback.includes("시작!");
+                    feedback.includes("시작!") ||
+                    feedback.includes("준비하세요!");
 
                   return (
                     <FeedbackMessage key={index} $isImportant={isImportant}>

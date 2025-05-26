@@ -14,9 +14,11 @@ interface PoseDetectorProps {
   visualizationMode: string;
   onCountUpdate: (count: number) => void;
   onFeedback: (message: string) => void;
-  onSetComplete?: (setInfo: NextSetInfo) => void; // 🎯 새로 추가: 세트 완료 콜백
+  onSetComplete?: (setInfo: NextSetInfo) => void; // 🎯 세트 완료 콜백
   isTransmitting: boolean;
-  isResting?: boolean; // 🎯 새로 추가: 휴식 상태
+  isResting?: boolean; // 🎯 휴식 상태
+  isStartCountdown?: boolean; // 🆕 시작 카운트다운 상태
+  startCountdown?: number; // 🆕 시작 카운트다운 값
 }
 
 const PoseDetector: React.FC<PoseDetectorProps> = ({
@@ -24,9 +26,11 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
   exerciseType,
   onCountUpdate,
   onFeedback,
-  onSetComplete, // 🎯 새로 추가
+  onSetComplete,
   isTransmitting,
-  isResting = false, // 🎯 새로 추가: 기본값 false
+  isResting = false, // 🎯 기본값 false
+  isStartCountdown = false, // 🆕 기본값 false
+  startCountdown = 0, // 🆕 기본값 0
 }) => {
   // 기본 상태
   const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(
@@ -51,7 +55,7 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const errorMessageRef = useRef<string>("");
 
-  // 🎯 새로 추가: 이전 전송 상태 추적
+  // 🎯 이전 전송 상태 추적
   const wasTransmittingRef = useRef<boolean>(false);
 
   // 비디오 요소 설정 콜백
@@ -131,14 +135,15 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
     };
   }, []);
 
-  // 🎯 새로 추가: isTransmitting 상태 변화 감지하여 disconnect_client 패킷 전송
+  // 🎯 isTransmitting 상태 변화 감지하여 disconnect_client 패킷 전송
   useEffect(() => {
-    // 전송 중이었다가 중단된 경우 (휴식 상태가 아닐 때만)
+    // 전송 중이었다가 중단된 경우 (휴식 상태나 시작 카운트다운이 아닐 때만)
     if (
       wasTransmittingRef.current &&
       !isTransmitting &&
       isConnected &&
-      !isResting
+      !isResting &&
+      !isStartCountdown // 🆕 시작 카운트다운 중이 아닐 때만
     ) {
       console.log("🔴 전송 중단 감지 - disconnect_client 패킷 전송");
 
@@ -161,6 +166,7 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
     isTransmitting,
     isConnected,
     isResting,
+    isStartCountdown, // 🆕 시작 카운트다운 의존성 추가
     disconnectClient,
     hasDisconnected,
     onFeedback,
@@ -311,7 +317,8 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
       !isConnecting &&
       isTransmitting && // 전송 중일 때만 연결 시도
       !hasDisconnected && // 연결 해제되지 않았을 때만
-      !isResting // 🎯 휴식 중이 아닐 때만 연결 시도
+      !isResting && // 🎯 휴식 중이 아닐 때만 연결 시도
+      !isStartCountdown // 🆕 시작 카운트다운 중이 아닐 때만 연결 시도
     ) {
       // 랜드마크가 감지되고 전송 중일 때만 자동 연결 시도
       console.log("🟢 자동 소켓 연결 시도");
@@ -326,6 +333,7 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
     isTransmitting,
     hasDisconnected,
     isResting, // 🎯 휴식 상태 의존성 추가
+    isStartCountdown, // 🆕 시작 카운트다운 의존성 추가
   ]);
 
   // 데이터 전송 로직
@@ -335,7 +343,8 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
       !isConnected ||
       rawLandmarks.length === 0 ||
       hasDisconnected ||
-      isResting // 🎯 휴식 중에는 전송하지 않음
+      isResting || // 🎯 휴식 중에는 전송하지 않음
+      isStartCountdown // 🆕 시작 카운트다운 중에는 전송하지 않음
     )
       return;
 
@@ -370,6 +379,7 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
     lastFrameTime,
     hasDisconnected,
     isResting, // 🎯 휴식 상태 의존성 추가
+    isStartCountdown, // 🆕 시작 카운트다운 의존성 추가
   ]);
 
   // 서버 처리 결과 MediaPipe 형식 변환
@@ -420,6 +430,13 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
         </div>
       )}
 
+      {/* 🆕 시작 카운트다운 상태 표시 */}
+      {isStartCountdown && (
+        <div className="absolute top-32 left-0 right-0 mx-auto w-max bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-10">
+          <p className="flex items-center text-sm">🏃‍♂️ 운동 준비 중...</p>
+        </div>
+      )}
+
       {/* 비디오 및 시각화 컴포넌트 */}
       <div className="w-full h-full">
         <WebcamCapture
@@ -447,12 +464,13 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
               />
             )}
 
-          {/* 서버 처리된 랜드마크 시각화 (파란색) - 연결 해제되지 않았을 때만 표시 */}
+          {/* 서버 처리된 랜드마크 시각화 (파란색) - 연결 해제, 휴식, 시작 카운트다운 중이 아닐 때만 표시 */}
           {videoElement &&
             showGuideline &&
             processedMediaPipeResults &&
             !hasDisconnected &&
-            !isResting && ( // 🎯 휴식 중에는 가이드라인 숨김
+            !isResting && // 🎯 휴식 중에는 가이드라인 숨김
+            !isStartCountdown && ( // 🆕 시작 카운트다운 중에는 가이드라인 숨김
               <MediaPipeVisualizer
                 videoElement={videoElement}
                 results={processedMediaPipeResults}
@@ -466,14 +484,15 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
               />
             )}
 
-          {/* 두 랜드마크 간의 차이 시각화 - 연결 해제되지 않았을 때만 표시 */}
+          {/* 두 랜드마크 간의 차이 시각화 - 연결 해제, 휴식, 시작 카운트다운 중이 아닐 때만 표시 */}
           {videoElement &&
             showDifferences &&
             rawLandmarks.length > 0 &&
             processedResult?.visualizationLandmarks &&
             processedResult.visualizationLandmarks.length > 0 &&
             !hasDisconnected &&
-            !isResting && ( // 🎯 휴식 중에는 차이 시각화 숨김
+            !isResting && // 🎯 휴식 중에는 차이 시각화 숨김
+            !isStartCountdown && ( // 🆕 시작 카운트다운 중에는 차이 시각화 숨김
               <PoseDifferenceVisualizer
                 videoElement={videoElement}
                 userLandmarks={rawLandmarks.map((lm) => ({
@@ -488,6 +507,21 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
                 height={videoHeight}
               />
             )}
+
+          {/* 🆕 시작 카운트다운 오버레이 - 카메라 스트림 중앙에 표시 */}
+          {isStartCountdown && (
+            <div className="absolute inset-0 bg-black bg-opacity-60 flex flex-col items-center justify-center z-30">
+              <div className="text-yellow-400 font-bold text-6xl mb-4">
+                운동 시작까지
+              </div>
+              <div className="text-white font-bold text-9xl mb-4">
+                {startCountdown}
+              </div>
+              <div className="text-gray-300 font-semibold text-4xl">
+                준비하세요!
+              </div>
+            </div>
+          )}
         </WebcamCapture>
 
         {(mediaPipeLoading || mediaLoading) && (
@@ -518,11 +552,12 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
           </div>
         )}
 
-        {/* 화면 우측 상단에 정확도 표시 - 연결 해제되지 않았을 때만 표시 */}
+        {/* 화면 우측 상단에 정확도 표시 - 연결 해제, 휴식, 시작 카운트다운 중이 아닐 때만 표시 */}
         {!hasDisconnected &&
           !mediaPipeLoading &&
           !mediaLoading &&
-          !isResting && (
+          !isResting &&
+          !isStartCountdown && ( // 🆕 시작 카운트다운 중에는 정확도 숨김
             <div className="absolute top-3 right-3 bg-black bg-opacity-70 rounded-lg p-3 text-white">
               <div className="flex items-center">
                 <span className="mr-2">정확도:</span>
