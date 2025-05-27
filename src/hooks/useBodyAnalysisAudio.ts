@@ -10,10 +10,9 @@ export const useBodyAnalysisAudio = (): BodyAnalysisAudioHook => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const isPlayingRef = useRef<boolean>(false);
 
-  // 체형분석 음성 파일 경로
+  // 🎵 간단한 파일명으로 변경
   const audioFiles = {
-    analysisStart:
-      "/audio/지금부터 체형분석을 시작합니다. 분석이 완료될 때 까지 자세를 유지하세요!.wav",
+    analysisStart: "/audio/start_analysis.wav",
   };
 
   // 오디오 초기화
@@ -61,7 +60,7 @@ export const useBodyAnalysisAudio = (): BodyAnalysisAudioHook => {
 
       // 새 오디오 설정 및 재생
       audioRef.current.src = audioPath;
-      audioRef.current.volume = 0.9; // 체형분석은 조금 더 크게 (90%)
+      audioRef.current.volume = 1.0; // 🔊 100% 볼륨으로 설정
 
       await audioRef.current.play();
       console.log(`🎵 체형분석 음성 재생: ${audioPath}`);

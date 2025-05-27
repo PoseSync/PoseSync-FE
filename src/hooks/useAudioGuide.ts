@@ -11,22 +11,22 @@ export const useAudioGuide = (): AudioGuideHook => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const isPlayingRef = useRef<boolean>(false);
 
-  // 음성 파일 경로 매핑
+  // 🎵 새로운 간단한 파일명으로 변경
   const audioFiles = {
-    start: "/audio/audio_11_운동을_시작하겠습니다_.wav",
+    start: "/audio/start_exercise.wav",
     counts: [
-      "/audio/audio_0_하나_.wav", // 1회
-      "/audio/audio_1_둘_.wav", // 2회
-      "/audio/audio_2_셋_.wav", // 3회
-      "/audio/audio_3_넷_.wav", // 4회
-      "/audio/audio_4_다섯_.wav", // 5회
-      "/audio/audio_5_여섯_.wav", // 6회
-      "/audio/audio_6_일곱_.wav", // 7회
-      "/audio/audio_7_여덟_.wav", // 8회
-      "/audio/audio_8_아홉_.wav", // 9회
-      "/audio/audio_9_열_.wav", // 10회
+      "/audio/count_1.wav", // 1회
+      "/audio/count_2.wav", // 2회
+      "/audio/count_3.wav", // 3회
+      "/audio/count_4.wav", // 4회
+      "/audio/count_5.wav", // 5회
+      "/audio/count_6.wav", // 6회
+      "/audio/count_7.wav", // 7회
+      "/audio/count_8.wav", // 8회
+      "/audio/count_9.wav", // 9회
+      "/audio/count_10.wav", // 10회
     ],
-    last: "/audio/audio_10_마지막.wav", // 마지막 횟수
+    last: "/audio/count_last.wav", // 마지막 횟수
   };
 
   // 오디오 초기화
@@ -45,7 +45,7 @@ export const useAudioGuide = (): AudioGuideHook => {
     };
 
     const handleError = (e: Event) => {
-      console.error("Audio play error:", e);
+      console.error("🎵 음성 재생 오류:", e);
       isPlayingRef.current = false;
     };
 
@@ -73,12 +73,12 @@ export const useAudioGuide = (): AudioGuideHook => {
 
       // 새 오디오 설정 및 재생
       audioRef.current.src = audioPath;
-      audioRef.current.volume = 0.8; // 볼륨 80%
+      audioRef.current.volume = 1.0; // 🔊 100% 볼륨으로 설정
 
       await audioRef.current.play();
-      console.log(`음성 재생: ${audioPath}`);
+      console.log(`🎵 음성 재생: ${audioPath}`);
     } catch (error) {
-      console.error("음성 재생 실패:", error);
+      console.error("🎵 음성 재생 실패:", error);
       isPlayingRef.current = false;
     }
   }, []);
