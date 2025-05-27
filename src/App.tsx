@@ -10,13 +10,14 @@ import Completion from "./pages/completedWorkout/Completion";
 import ExerciseResult from "./pages/completedWorkout/ExerciseResult";
 import RealTimeExercisePage from "./pages/realTimeExercise/RealTimeExercisePage";
 import RouteGuard from "./components/guards/RouteGuard";
+import Test from "./pages/Test";
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
         {/* 초기 페이지 - 보호 필요 없음 */}
-        <Route path="/" element={<Home />} />
+        <Route path="/test" element={<Test />} />
 
         {/* 전화번호 입력 - 보호 필요 없음 */}
         <Route path="/info" element={<PhoneInput />} />

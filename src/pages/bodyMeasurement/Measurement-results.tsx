@@ -203,7 +203,7 @@ const ResultTextBase = styled.div`
 `;
 
 const ArmInfoText = styled(InfoTextBase)`
-  width: 435px;
+  width: 600px;
   height: 56px;
   font-weight: 500;
   font-size: 44px;
@@ -212,7 +212,7 @@ const ArmInfoText = styled(InfoTextBase)`
   margin-bottom: 12px;
 `;
 const FemurInfoText = styled(InfoTextBase)`
-  width: 556px;
+  width: 660px;
   height: 56px;
   font-weight: 500;
   font-size: 44px;
@@ -221,7 +221,7 @@ const FemurInfoText = styled(InfoTextBase)`
   margin-bottom: 12px;
 `;
 const HipJointInfoText = styled(InfoTextBase)`
-  width: 430px;
+  width: 660px;
   height: 56px;
   font-weight: 500;
   font-size: 44px;
@@ -230,7 +230,7 @@ const HipJointInfoText = styled(InfoTextBase)`
   margin-bottom: 12px;
 `;
 const BodyRatioInfoText = styled(InfoTextBase)`
-  width: 358px;
+  width: 650px;
   height: 56px;
   font-weight: 500;
   font-size: 44px;
@@ -300,13 +300,13 @@ const MeasurementResults: React.FC = () => {
 
   // 기본값 설정
   const defaultValues = {
-    armRatio: "상완-전완 비율 | 1:0.85",
+    armRatio: "상완-전완 비율 | 1:0.85129",
     armResultText: "상완비율 평균형",
-    upperLowerRatio: "상체-하체 비율 | 1:1.05",
+    upperLowerRatio: "상체-하체 비율 | 1:1.05246",
     upperLowerResultText: "상하체비율 평균형",
-    femurTibiaRatio: "대퇴골-정강이 비율 | 1:0.95",
+    femurTibiaRatio: "대퇴골-정강이 비율 | 1:0.95852",
     femurResultText: "대퇴골비율 평균형",
-    hipRatio: "고관절-신장 비율 | 0.20",
+    hipRatio: "고관절-신장 비율 | 0.20753",
     hipResultText: "고관절 너비 평균형",
   };
 
