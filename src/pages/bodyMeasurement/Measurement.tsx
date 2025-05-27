@@ -6,6 +6,7 @@ import { useUserStore } from "../../store/useUserStore";
 import { useMediaPipe } from "../../hooks/useMediaPipe";
 import { useBodyAnalysisAudio } from "../../hooks/useBodyAnalysisAudio"; // 🎵 체형분석 음성 훅 추가
 import { cleanupMediaPipe } from "../../utils/mediaPipeSingleton";
+import Lottie from "lottie-react";
 import axios from "axios";
 
 // 타입 선언
@@ -135,6 +136,9 @@ const LottieContainer = styled.div`
   width: 300px;
   height: 300px;
   margin-bottom: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 `;
 
 const AnalysisText = styled.div`
@@ -240,6 +244,9 @@ const Measurement: React.FC = () => {
   const [bodyStabilityCount, setBodyStabilityCount] = useState<number>(0);
   const [showFullBodyGuide, setShowFullBodyGuide] = useState<boolean>(true);
 
+  // 🎬 Lottie 애니메이션 상태
+  const [animationData, setAnimationData] = useState(null);
+
   // 📌 프레임 수집 관련 ref
   const frameBufferRef = useRef<{
     landmarks: Landmark[][];
@@ -266,6 +273,19 @@ const Measurement: React.FC = () => {
   const COLLECTION_TIME_SECONDS = 10;
   const FRAME_COLLECTION_INTERVAL = 200;
   const STABILITY_REQUIRED_FRAMES = 15; // 🔍 3초간 안정적으로 감지되어야 함 (15프레임)
+
+  // 🎬 Lottie 애니메이션 로드
+  useEffect(() => {
+    fetch("/animations/Main Scene.json")
+      .then((response) => response.json())
+      .then((data) => {
+        setAnimationData(data);
+        console.log("✅ Lottie 애니메이션 로드 완료");
+      })
+      .catch((error) => {
+        console.error("❌ Lottie 애니메이션 로드 실패:", error);
+      });
+  }, []);
 
   // Tasks API MediaPipe 훅 사용
   const {
@@ -837,22 +857,28 @@ const Measurement: React.FC = () => {
         {analyzing && (
           <AnalysisOverlay>
             <LottieContainer>
-              <div
-                id="lottie-container"
-                style={{ width: "100%", height: "100%" }}
-                dangerouslySetInnerHTML={{
-                  __html: `
-                    <lottie-player 
-                      src="https://assets1.lottiefiles.com/packages/lf20_p8bfn5to.json"
-                      background="transparent"
-                      speed="1"
-                      style="width: 100%; height: 100%;"
-                      loop
-                      autoplay
-                    ></lottie-player>
-                  `,
-                }}
-              />
+              {animationData ? (
+                <Lottie
+                  animationData={animationData}
+                  loop={true}
+                  autoplay={true}
+                  style={{ width: "100%", height: "100%" }}
+                />
+              ) : (
+                <div
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: "white",
+                    fontSize: "24px",
+                  }}
+                >
+                  로딩 중...
+                </div>
+              )}
             </LottieContainer>
             <AnalysisText>
               {isCollectingFrames ? "측정 중..." : "분석 중..."}
