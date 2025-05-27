@@ -365,7 +365,7 @@ const RealTimeExercisePage: React.FC = () => {
     incline_bench_press: "인클라인 벤치프레스",
   };
 
-  // 🎯 세트 완료 처리 함수 - 10초 휴식으로 변경
+  // 🎯 세트 완료 처리 함수
   const handleSetComplete = useCallback(
     (setInfo: NextSetInfo) => {
       console.log("🏁 세트 완료:", setInfo);
@@ -373,7 +373,10 @@ const RealTimeExercisePage: React.FC = () => {
       // 🎵 음성 중단
       stopAllAudio();
 
-      // 1. 전송 중단 (disconnect_client 패킷 자동 전송)
+      // ✅ 1. 먼저 휴식 상태로 설정 (전송 중단보다 먼저!)
+      setIsResting(true);
+
+      // ✅ 2. 그 다음에 전송 중단 (disconnect_client 패킷 자동 전송)
       setIsTransmitting(false);
 
       if (setInfo.is_last) {
@@ -384,7 +387,6 @@ const RealTimeExercisePage: React.FC = () => {
         }, 3000);
       } else {
         // 다음 세트가 있음 - 10초 휴식 후 자동 시작
-        setIsResting(true);
         setRestCountdown(10);
 
         // 🎯 null 체크 추가: set_number가 null이 아닐 때만 설정
@@ -424,14 +426,19 @@ const RealTimeExercisePage: React.FC = () => {
 
           if (currentCountdown <= 0) {
             clearInterval(countdownInterval);
-            setIsResting(false);
-            setIsTransmitting(true);
-            handleFeedback(`${currentSetNumber}세트 시작!`);
+
+            // ✅ 휴식 종료 시 상태 변경 순서 중요!
+            setIsResting(false); // 먼저 휴식 해제
+            setTimeout(() => {
+              // 약간의 지연 후
+              setIsTransmitting(true); // 전송 시작
+              handleFeedback(`${currentSetNumber}세트 시작!`);
+            }, 500);
           }
         }, 1000);
       }
     },
-    [navigate, currentSet, stopAllAudio] // stopAllAudio 의존성 추가
+    [navigate, currentSet, stopAllAudio]
   );
 
   // 피드백 추가 함수

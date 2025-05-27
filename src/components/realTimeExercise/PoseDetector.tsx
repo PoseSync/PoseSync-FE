@@ -141,14 +141,14 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
 
   // 🎯 isTransmitting 상태 변화 감지하여 disconnect_client 패킷 전송
   useEffect(() => {
-    // 전송 중이었다가 중단된 경우 (휴식 상태나 시작 카운트다운이 아닐 때만)
-    if (
-      wasTransmittingRef.current &&
-      !isTransmitting &&
-      isConnected &&
-      !isResting &&
-      !isStartCountdown // 🆕 시작 카운트다운 중이 아닐 때만
-    ) {
+    // ✅ 휴식 중이거나 시작 카운트다운 중일 때는 disconnect_client 패킷을 보내지 않음
+    if (isResting || isStartCountdown) {
+      wasTransmittingRef.current = isTransmitting;
+      return;
+    }
+
+    // 전송 중이었다가 중단된 경우
+    if (wasTransmittingRef.current && !isTransmitting && isConnected) {
       console.log("🔴 전송 중단 감지 - disconnect_client 패킷 전송");
 
       // 🎯 자세 분석 상태 리셋
@@ -176,11 +176,11 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
     isTransmitting,
     isConnected,
     isResting,
-    isStartCountdown, // 🆕 시작 카운트다운 의존성 추가
+    isStartCountdown,
     disconnectClient,
     hasDisconnected,
     onFeedback,
-    resetAnalysis, // 🎯 의존성 추가
+    resetAnalysis,
   ]);
 
   // 전신 가시성 체크 함수 - 안정화된 버전
