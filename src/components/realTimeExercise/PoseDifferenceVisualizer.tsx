@@ -11,7 +11,6 @@ interface PoseDifferenceVisualizerProps {
 
 /**
  * 사용자 관절 위치에 정확도 상태를 표시하는 시각화 컴포넌트
- * 🔧 수정: 좌표계 변환 오류 해결
  */
 const PoseDifferenceVisualizer: React.FC<PoseDifferenceVisualizerProps> = ({
   videoElement,
@@ -36,16 +35,23 @@ const PoseDifferenceVisualizer: React.FC<PoseDifferenceVisualizerProps> = ({
     if (!ctx) return;
 
     try {
-      // 주요 관절 ID (하체 중심 - 운동에서 가장 중요한 부분)
+      // 🆕 모든 주요 관절 ID (하체 + 상체 팔 관절 모두 포함)
       const KEY_JOINTS = [
+        // 하체 관절
         23,
         24, // 양쪽 고관절
         25,
         26, // 양쪽 무릎
         27,
         28, // 양쪽 발목
+
+        // 상체 관절
         11,
-        12, // 양쪽 어깨 (상체 운동 시)
+        12, // 양쪽 어깨
+        13,
+        14, // 양쪽 팔꿈치
+        15,
+        16, // 양쪽 손목
       ];
 
       // 캔버스 크기 설정
@@ -71,7 +77,7 @@ const PoseDifferenceVisualizer: React.FC<PoseDifferenceVisualizerProps> = ({
         }
       });
 
-      // 주요 관절에 대해서만 정확도 상태 표시
+      // 모든 주요 관절에 대해서 정확도 상태 표시
       KEY_JOINTS.forEach((jointId) => {
         const guideLm = guidelineMap[jointId];
         const userLm = userMap[jointId];
@@ -100,8 +106,19 @@ const PoseDifferenceVisualizer: React.FC<PoseDifferenceVisualizerProps> = ({
           Math.pow(userX - guideX, 2) + Math.pow(userY - guideY, 2)
         );
 
-        // 목표 구역 반지름 (화면 크기의 3%)
-        const targetRadius = Math.min(canvas.width, canvas.height) * 0.03;
+        // 🆕 관절별 목표 구역 반지름 조정 (손목/팔꿈치는 조금 더 작게)
+        let targetRadius;
+        if ([15, 16].includes(jointId)) {
+          // 손목: 화면 크기의 2.5%
+          targetRadius = Math.min(canvas.width, canvas.height) * 0.025;
+        } else if ([13, 14].includes(jointId)) {
+          // 팔꿈치: 화면 크기의 2.8%
+          targetRadius = Math.min(canvas.width, canvas.height) * 0.028;
+        } else {
+          // 기타 관절: 화면 크기의 3%
+          targetRadius = Math.min(canvas.width, canvas.height) * 0.03;
+        }
+
         const isInTargetZone = distance <= targetRadius;
 
         // 맥박 효과 (부드러운 애니메이션)
@@ -193,14 +210,21 @@ const PoseDifferenceVisualizer: React.FC<PoseDifferenceVisualizerProps> = ({
           window.location.hostname === "localhost"
         ) {
           const jointNames: Record<number, string> = {
+            // 하체
             23: "왼골반",
             24: "오른골반",
             25: "왼무릎",
             26: "오른무릎",
             27: "왼발목",
             28: "오른발목",
+
+            // 상체
             11: "왼어깨",
             12: "오른어깨",
+            13: "왼팔꿈치", // ✅ 추가
+            14: "오른팔꿈치", // ✅ 추가
+            15: "왼손목", // ✅ 추가
+            16: "오른손목", // ✅ 추가
           };
 
           const jointName = jointNames[jointId];
@@ -226,17 +250,22 @@ const PoseDifferenceVisualizer: React.FC<PoseDifferenceVisualizerProps> = ({
         ctx.restore();
       });
 
-      // 설명 텍스트 (화면 하단에 작게)
+      // 🆕 업데이트된 설명 텍스트 (화면 하단에 작게)
       ctx.fillStyle = "rgba(0, 0, 0, 0.8)";
-      ctx.fillRect(10, canvas.height - 80, 320, 70);
+      ctx.fillRect(10, canvas.height - 100, 350, 90);
 
       ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
       ctx.font = "14px Arial";
       ctx.textAlign = "left";
-      ctx.fillText("관절 정확도:", 15, canvas.height - 60);
-      ctx.fillText("🟢 초록색 = 정확함", 15, canvas.height - 40);
-      ctx.fillText("🟠 주황색 = 조금 벗어남", 15, canvas.height - 20);
-      ctx.fillText("🔴 빨간색 = 많이 벗어남", 150, canvas.height - 20);
+      ctx.fillText(
+        "관절 정확도 (하체+상체 모든 관절):",
+        15,
+        canvas.height - 80
+      );
+      ctx.fillText("🟢 초록색 = 정확함", 15, canvas.height - 60);
+      ctx.fillText("🟠 주황색 = 조금 벗어남", 15, canvas.height - 40);
+      ctx.fillText("🔴 빨간색 = 많이 벗어남", 15, canvas.height - 20);
+      ctx.fillText("→ 흰색 화살표 = 이동 방향", 180, canvas.height - 40);
     } catch (error) {
       console.error("사용자 관절 정확도 시각화 중 오류:", error);
     }
