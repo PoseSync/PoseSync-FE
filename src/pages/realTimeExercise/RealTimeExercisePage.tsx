@@ -350,6 +350,8 @@ const RealTimeExercisePage: React.FC = () => {
   // 🎵 이전 횟수 추적 (중복 음성 방지)
   const [prevCount, setPrevCount] = useState(0);
 
+  const [fallAlert, setFallAlert] = useState(false);
+
   // 서버 변수명과 운동 이름 매핑
   const exerciseTypeMapping: Record<string, string> = {
     squat: "바벨 스쿼트",
@@ -440,6 +442,27 @@ const RealTimeExercisePage: React.FC = () => {
     },
     [navigate, currentSet, stopAllAudio]
   );
+
+  const handleFallDetected = useCallback(() => {
+    console.log("🚨 상위 컴포넌트: 낙상 감지됨");
+
+    // 낙상 알림 상태 활성화
+    setFallAlert(true);
+
+    // 운동 중이었다면 일시 중단
+    if (isTransmitting) {
+      setIsTransmitting(false);
+      handleFeedback("⚠️ 낙상 감지로 인해 운동이 일시 중단됩니다.");
+    }
+
+    // 음성 중단
+    stopAllAudio();
+
+    // 5초 후 알림 해제
+    setTimeout(() => {
+      setFallAlert(false);
+    }, 5000);
+  }, [isTransmitting, stopAllAudio]);
 
   // 피드백 추가 함수
   const handleFeedback = useCallback((message: string) => {
@@ -821,6 +844,20 @@ const RealTimeExercisePage: React.FC = () => {
   return (
     <FullScreen>
       <Gnb />
+      {/* 🚨 낙상 감지 전체 화면 알림 */}
+      {fallAlert && (
+        <div className="fixed inset-0 bg-red-600 bg-opacity-90 flex flex-col items-center justify-center z-50">
+          <div className="text-white text-8xl font-bold mb-8 animate-pulse">
+            🚨 낙상 감지 🚨
+          </div>
+          <div className="text-white text-4xl font-semibold mb-4">
+            응급 연락이 진행 중입니다
+          </div>
+          <div className="text-white text-2xl">
+            안전한 곳으로 이동하여 도움을 기다려주세요
+          </div>
+        </div>
+      )}
       <Container>
         <ExerciseContainer>
           <TitleContainer>
@@ -843,6 +880,7 @@ const RealTimeExercisePage: React.FC = () => {
                 isResting={isResting}
                 isStartCountdown={isStartCountdown}
                 startCountdown={startCountdown}
+                onFallDetected={handleFallDetected}
               />
 
               {/* 🎯 휴식 중 오버레이 */}
@@ -910,7 +948,8 @@ const RealTimeExercisePage: React.FC = () => {
                     feedback.includes("중단되었습니다") ||
                     feedback.includes("시작합니다") ||
                     feedback.includes("시작!") ||
-                    feedback.includes("준비하세요!");
+                    feedback.includes("준비하세요!") ||
+                    feedback.includes("낙상 감지");
 
                   return (
                     <FeedbackMessage key={index} $isImportant={isImportant}>

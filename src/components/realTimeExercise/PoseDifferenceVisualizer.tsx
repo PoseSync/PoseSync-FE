@@ -11,7 +11,7 @@ interface PoseDifferenceVisualizerProps {
 
 /**
  * 사용자 관절 위치에 정확도 상태를 표시하는 시각화 컴포넌트
- * 사용자의 각 관절이 가이드라인과 일치하는지를 색상으로 피드백
+ * 🔧 수정: 좌표계 변환 오류 해결
  */
 const PoseDifferenceVisualizer: React.FC<PoseDifferenceVisualizerProps> = ({
   videoElement,
@@ -86,11 +86,12 @@ const PoseDifferenceVisualizer: React.FC<PoseDifferenceVisualizerProps> = ({
           return;
         }
 
-        // 사용자 관절 위치 계산 (정규화된 좌표를 화면 좌표로 변환)
-        const userX = ((userLm.x + 1) / 2) * canvas.width;
-        const userY = ((userLm.y + 1) / 2) * canvas.height;
+        // 🔧 수정: 올바른 좌표 변환
+        // 사용자 관절 위치 계산 (0~1 정규화된 좌표를 화면 좌표로 변환)
+        const userX = userLm.x * canvas.width;
+        const userY = userLm.y * canvas.height;
 
-        // 가이드라인 관절 위치 계산
+        // 가이드라인 관절 위치 계산 (-1~1 좌표를 화면 좌표로 변환)
         const guideX = ((guideLm.x + 1) / 2) * canvas.width;
         const guideY = ((guideLm.y + 1) / 2) * canvas.height;
 
@@ -128,6 +129,11 @@ const PoseDifferenceVisualizer: React.FC<PoseDifferenceVisualizerProps> = ({
             ctx.strokeStyle = "rgba(239, 68, 68, 0.8)"; // 진한 빨간색
           }
         }
+
+        // 🔧 거울 모드 적용 (MediaPipeVisualizer와 동일하게)
+        ctx.save();
+        ctx.scale(-1, 1);
+        ctx.translate(-canvas.width, 0);
 
         // 사용자 관절 위치에 상태 원 그리기
         ctx.beginPath();
@@ -215,6 +221,9 @@ const PoseDifferenceVisualizer: React.FC<PoseDifferenceVisualizerProps> = ({
             );
           }
         }
+
+        // 🔧 거울 모드 복원
+        ctx.restore();
       });
 
       // 설명 텍스트 (화면 하단에 작게)

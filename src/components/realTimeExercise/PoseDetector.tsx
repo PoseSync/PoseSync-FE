@@ -5,6 +5,7 @@ import PoseMatchIndicator from "./PoseMatchIndicator";
 import PoseDifferenceVisualizer from "./PoseDifferenceVisualizer";
 import { useMediaPipe } from "../../hooks/useMediaPipe";
 import { useSocket, NextSetInfo } from "../../hooks/useSocket";
+import { useFallMonitorSocket } from "../../hooks/useFallMonitorSocket";
 import { Landmark } from "../../types";
 import { cleanupMediaPipe } from "../../utils/mediaPipeSingleton";
 import { usePoseAnalysis } from "../../hooks/usePoseAnalysis";
@@ -15,11 +16,12 @@ interface PoseDetectorProps {
   visualizationMode: string;
   onCountUpdate: (count: number) => void;
   onFeedback: (message: string) => void;
-  onSetComplete?: (setInfo: NextSetInfo) => void; // 🎯 세트 완료 콜백
+  onSetComplete?: (setInfo: NextSetInfo) => void;
   isTransmitting: boolean;
-  isResting?: boolean; // 🎯 휴식 상태
-  isStartCountdown?: boolean; // 🆕 시작 카운트다운 상태
-  startCountdown?: number; // 🆕 시작 카운트다운 값
+  isResting?: boolean;
+  isStartCountdown?: boolean;
+  startCountdown?: number;
+  onFallDetected?: () => void; // 🚨 새로 추가: 낙상 감지 콜백
 }
 
 const PoseDetector: React.FC<PoseDetectorProps> = ({
@@ -29,36 +31,45 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
   onFeedback,
   onSetComplete,
   isTransmitting,
-  isResting = false, // 🎯 기본값 false
-  isStartCountdown = false, // 🆕 기본값 false
-  startCountdown = 0, // 🆕 기본값 0
+  isResting = false,
+  isStartCountdown = false,
+  startCountdown = 0,
+  onFallDetected, // 🚨 새로 추가
 }) => {
-  // 기본 상태
+  // 기존 상태들...
   const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(
     null
   );
   const [lastFrameTime, setLastFrameTime] = useState<number>(0);
   const [warningMessage, setWarningMessage] = useState<string>("");
-  const [hasDisconnected, setHasDisconnected] = useState<boolean>(false); // 연결 해제 상태 추적
+  const [hasDisconnected, setHasDisconnected] = useState<boolean>(false);
   const [mediaLoading, setMediaLoading] = useState<boolean>(true);
 
-  // 🎯 새로 추가: 자세 분석 훅
+  // 자세 분석 훅
   const { accuracy, analyzePose, resetAnalysis } = usePoseAnalysis();
 
-  // 플래그 상수 (상태 변수가 아닌 상수로 정의하여 불필요한 경고 제거)
+  // 🚨 낙상 감지 소켓 훅 추가
+  const {
+    isConnected: fallMonitorConnected,
+    sendFallMonitorData,
+    fallDetected,
+    resetFallDetection,
+    error: fallMonitorError,
+  } = useFallMonitorSocket({
+    phoneNumber,
+    autoConnect: true, // 컴포넌트 마운트 시 자동 연결
+  });
+
+  // 플래그 상수
   const showFace = false;
   const showGuideline = true;
   const showDifferences = true;
 
-  // VideoContainer 크기에 맞게 비디오 크기 조정 - 1920x1080으로 수정
   const videoWidth = 1920;
   const videoHeight = 1080;
 
-  // 컨테이너 참조
   const containerRef = useRef<HTMLDivElement>(null);
   const errorMessageRef = useRef<string>("");
-
-  // 🎯 이전 전송 상태 추적
   const wasTransmittingRef = useRef<boolean>(false);
 
   // 비디오 요소 설정 콜백
@@ -82,18 +93,18 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
     }
   }, [videoElement]);
 
-  // MediaPipe 훅 사용 (더 관대한 설정으로 안정성 확보)
+  // MediaPipe 훅 사용
   const {
     isLoading: mediaPipeLoading,
     rawLandmarks,
     error: mediaPipeError,
   } = useMediaPipe(videoElement && !mediaLoading ? videoElement : null, {
     smoothLandmarks: true,
-    minDetectionConfidence: 0.5, // 기존 0.6에서 0.5로 낮춤
-    minTrackingConfidence: 0.3, // 기존 0.5에서 0.3으로 낮춤
+    minDetectionConfidence: 0.5,
+    minTrackingConfidence: 0.3,
   });
 
-  // Socket.io 훅 사용 - 🎯 onSetComplete 콜백 추가
+  // 기존 운동 분석용 Socket.io 훅
   const {
     isConnected,
     isConnecting,
@@ -105,8 +116,60 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
     phoneNumber,
     exerciseType,
     autoConnect: false,
-    onSetComplete, // 🎯 세트 완료 콜백 전달
+    onSetComplete,
   });
+
+  // 🚨 낙상 감지 처리
+  useEffect(() => {
+    if (fallDetected) {
+      console.log("🚨 낙상이 감지되었습니다!");
+      onFeedback("⚠️ 낙상이 감지되었습니다! 응급 연락이 진행 중입니다.");
+
+      // 부모 컴포넌트에 낙상 감지 알림
+      if (onFallDetected) {
+        onFallDetected();
+      }
+
+      // 낙상 감지 상태 초기화 (3초 후)
+      setTimeout(() => {
+        resetFallDetection();
+      }, 3000);
+    }
+  }, [fallDetected, onFeedback, onFallDetected, resetFallDetection]);
+
+  // 🚨 낙상 감지 데이터 전송 로직
+  useEffect(() => {
+    if (
+      fallMonitorConnected &&
+      rawLandmarks.length > 0 &&
+      !mediaPipeLoading &&
+      !mediaLoading
+    ) {
+      // 200ms마다 한 번씩 낙상 감지 데이터 전송
+      const now = performance.now();
+      if (now - lastFrameTime >= 200) {
+        const landmarksToSend: Landmark[] = rawLandmarks.map((lm) => ({
+          id: lm.id,
+          x: lm.x,
+          y: lm.y,
+          z: lm.z,
+          visibility: lm.visibility,
+        }));
+
+        const sendSuccess = sendFallMonitorData(landmarksToSend);
+        if (sendSuccess) {
+          console.log("📡 낙상 감지 데이터 전송 성공");
+        }
+      }
+    }
+  }, [
+    fallMonitorConnected,
+    rawLandmarks,
+    mediaPipeLoading,
+    mediaLoading,
+    sendFallMonitorData,
+    lastFrameTime,
+  ]);
 
   // MediaPipe 오류 상태 표시
   useEffect(() => {
@@ -114,44 +177,37 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
       console.error("MediaPipe 오류:", mediaPipeError);
       errorMessageRef.current = mediaPipeError.message;
       onFeedback(`포즈 감지 초기화 오류: ${mediaPipeError.message}`);
-
-      // MediaPipe 인스턴스 정리 후 재시도
       cleanupMediaPipe();
     }
   }, [mediaPipeError, onFeedback]);
 
-  // 랜드마크 감지 상태 로깅
+  // 🚨 낙상 감지 오류 처리
   useEffect(() => {
-    if (rawLandmarks.length > 0) {
-      console.log("랜드마크 감지됨:", rawLandmarks.length, "개");
-    } else if (!mediaPipeLoading && videoElement && !mediaLoading) {
-      console.log("랜드마크 감지되지 않음");
+    if (fallMonitorError) {
+      console.error("낙상 감지 오류:", fallMonitorError);
+      onFeedback(`낙상 감지 연결 오류: ${fallMonitorError.message}`);
     }
-  }, [rawLandmarks.length, mediaPipeLoading, videoElement, mediaLoading]);
+  }, [fallMonitorError, onFeedback]);
 
   // 컴포넌트 언마운트 시 정리
   useEffect(() => {
     return () => {
-      // MediaPipe 정리
       cleanupMediaPipe();
-      resetAnalysis(); // 🎯 컴포넌트 언마운트 시 분석 상태 리셋
-      console.log("PoseDetector 컴포넌트 언마운트 - MediaPipe 정리됨");
+      resetAnalysis();
+      resetFallDetection();
+      console.log("PoseDetector 컴포넌트 언마운트 - 모든 리소스 정리됨");
     };
-  }, [resetAnalysis]);
+  }, [resetAnalysis, resetFallDetection]);
 
-  // 🎯 isTransmitting 상태 변화 감지하여 disconnect_client 패킷 전송
+  // 🎯 운동 분석 전송 상태 변화 감지 (기존 로직 유지)
   useEffect(() => {
-    // ✅ 휴식 중이거나 시작 카운트다운 중일 때는 disconnect_client 패킷을 보내지 않음
     if (isResting || isStartCountdown) {
       wasTransmittingRef.current = isTransmitting;
       return;
     }
 
-    // 전송 중이었다가 중단된 경우
     if (wasTransmittingRef.current && !isTransmitting && isConnected) {
-      console.log("🔴 전송 중단 감지 - disconnect_client 패킷 전송");
-
-      // 🎯 자세 분석 상태 리셋
+      console.log("🔴 운동 분석 전송 중단 감지 - disconnect_client 패킷 전송");
       resetAnalysis();
 
       if (disconnectClient) {
@@ -161,16 +217,12 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
       }
     }
 
-    // 전송 상태가 다시 시작되면 연결 해제 상태 초기화
     if (isTransmitting && hasDisconnected) {
       setHasDisconnected(false);
-      console.log("🟢 전송 재시작 - 연결 해제 상태 초기화");
-
-      // 🎯 새로운 세트 시작 시 분석 상태 리셋
+      console.log("🟢 운동 분석 전송 재시작 - 연결 해제 상태 초기화");
       resetAnalysis();
     }
 
-    // 현재 전송 상태를 이전 상태로 저장
     wasTransmittingRef.current = isTransmitting;
   }, [
     isTransmitting,
@@ -183,19 +235,10 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
     resetAnalysis,
   ]);
 
-  // 전신 가시성 체크 함수 - 안정화된 버전
+  // 전신 가시성 체크 함수 (기존 로직 유지)
   const checkFullBodyVisibility = useCallback((landmarks: Landmark[]) => {
-    // 필수 랜드마크 ID (하체 관절)
-    const requiredJoints = [
-      23,
-      24, // 왼쪽/오른쪽 고관절
-      25,
-      26, // 왼쪽/오른쪽 무릎
-      27,
-      28, // 왼쪽/오른쪽 발목
-    ];
+    const requiredJoints = [23, 24, 25, 26, 27, 28];
 
-    // 모든 필수 관절의 가시성 확인
     const allVisible = requiredJoints.every((id) => {
       const landmark = landmarks.find((lm) => lm.id === id);
       return (
@@ -205,18 +248,15 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
       );
     });
 
-    // 하체 길이가 충분히 보이는지 확인
     if (allVisible) {
-      const hip = landmarks.find((lm) => lm.id === 24); // 오른쪽 고관절
-      const ankle = landmarks.find((lm) => lm.id === 28); // 오른쪽 발목
-      const shoulder = landmarks.find((lm) => lm.id === 12); // 오른쪽 어깨
+      const hip = landmarks.find((lm) => lm.id === 24);
+      const ankle = landmarks.find((lm) => lm.id === 28);
+      const shoulder = landmarks.find((lm) => lm.id === 12);
 
       if (hip && ankle && shoulder) {
         const upperBodyLength = Math.abs(hip.y - shoulder.y);
         const lowerBodyLength = Math.abs(ankle.y - hip.y);
         const lowerBodyRatio = lowerBodyLength / upperBodyLength;
-
-        // 하체가 상체의 최소 70% 길이는 되어야 함
         return allVisible && lowerBodyRatio >= 0.7;
       }
     }
@@ -224,13 +264,12 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
     return allVisible;
   }, []);
 
-  // 서버에서 처리된 랜드마크를 MediaPipe 시각화 형식으로 변환
+  // 서버에서 처리된 랜드마크를 MediaPipe 시각화 형식으로 변환 (기존 로직 유지)
   const convertToMediaPipeFormat = useCallback(
     (visualizationLandmarks: Landmark[]) => {
       if (!visualizationLandmarks || visualizationLandmarks.length === 0)
         return null;
 
-      // 서버에서 받은 시각화용 랜드마크를 MediaPipe format으로 변환
       const orderedLandmarks = new Array(33).fill(null);
 
       visualizationLandmarks.forEach((lm) => {
@@ -253,16 +292,13 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
     []
   );
 
-  // 🎯 수정된 부분: 자세 분석 및 피드백 처리
+  // 🎯 자세 분석 및 피드백 처리 (기존 로직 유지)
   useEffect(() => {
-    // 컴포넌트가 마운트 상태인지 확인
     if (!containerRef.current) return;
 
-    // rawLandmarks가 있을 때만 전신 가시성 확인
     if (rawLandmarks.length > 0) {
       console.log("현재 감지된 랜드마크 수:", rawLandmarks.length);
 
-      // 타입 오류 수정: rawLandmarks를 Landmark[] 타입으로 변환
       const landmarksForCheck: Landmark[] = rawLandmarks.map((lm) => ({
         id: lm.id,
         x: lm.x,
@@ -271,7 +307,6 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
         visibility: lm.visibility,
       }));
 
-      // 전신 가시성 확인
       const isFullBodyVisible = checkFullBodyVisibility(landmarksForCheck);
 
       if (!isFullBodyVisible) {
@@ -282,11 +317,10 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
         setWarningMessage("");
       }
     } else if (!mediaPipeLoading && videoElement && !mediaLoading) {
-      // MediaPipe가 로딩이 완료되었는데도 랜드마크가 감지되지 않는 경우
       setWarningMessage("포즈를 감지할 수 없습니다. 카메라 앞에 서주세요.");
     }
 
-    // 🎯 실시간 자세 분석 (전송 중이고 가이드라인이 있을 때만)
+    // 실시간 자세 분석 (운동 분석 전송 중일 때만)
     if (
       rawLandmarks.length > 0 &&
       processedResult &&
@@ -296,7 +330,6 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
       !isResting &&
       !isStartCountdown
     ) {
-      // 타입 변환
       const userLandmarks: Landmark[] = rawLandmarks.map((lm) => ({
         id: lm.id,
         x: lm.x,
@@ -305,13 +338,11 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
         visibility: lm.visibility,
       }));
 
-      // 자세 분석 실행
       const feedback = analyzePose(
         userLandmarks,
         processedResult.visualizationLandmarks
       );
 
-      // 피드백이 있으면 상위 컴포넌트에 전달
       if (feedback) {
         onFeedback(feedback);
       }
@@ -322,7 +353,6 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
       onCountUpdate(processedResult.exerciseCount);
     }
 
-    // 기타 피드백 처리
     if (processedResult && processedResult.feedback) {
       onFeedback(processedResult.feedback);
     }
@@ -338,23 +368,22 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
     isTransmitting,
     isResting,
     isStartCountdown,
-    analyzePose, // 🎯 의존성 추가
+    analyzePose,
   ]);
 
-  // 비디오 요소가 준비되면 자동으로 소켓 연결 시도
+  // 운동 분석용 소켓 자동 연결 (기존 로직 유지)
   useEffect(() => {
     if (
       videoElement &&
       rawLandmarks.length > 0 &&
       !isConnected &&
       !isConnecting &&
-      isTransmitting && // 전송 중일 때만 연결 시도
-      !hasDisconnected && // 연결 해제되지 않았을 때만
-      !isResting && // 🎯 휴식 중이 아닐 때만 연결 시도
-      !isStartCountdown // 🆕 시작 카운트다운 중이 아닐 때만 연결 시도
+      isTransmitting &&
+      !hasDisconnected &&
+      !isResting &&
+      !isStartCountdown
     ) {
-      // 랜드마크가 감지되고 전송 중일 때만 자동 연결 시도
-      console.log("🟢 자동 소켓 연결 시도");
+      console.log("🟢 운동 분석 소켓 자동 연결 시도");
       connect();
     }
   }, [
@@ -365,30 +394,27 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
     connect,
     isTransmitting,
     hasDisconnected,
-    isResting, // 🎯 휴식 상태 의존성 추가
-    isStartCountdown, // 🆕 시작 카운트다운 의존성 추가
+    isResting,
+    isStartCountdown,
   ]);
 
-  // 데이터 전송 로직
+  // 운동 분석 데이터 전송 로직 (기존 로직 유지)
   useEffect(() => {
     if (
       !isTransmitting ||
       !isConnected ||
       rawLandmarks.length === 0 ||
       hasDisconnected ||
-      isResting || // 🎯 휴식 중에는 전송하지 않음
-      isStartCountdown // 🆕 시작 카운트다운 중에는 전송하지 않음
+      isResting ||
+      isStartCountdown
     )
       return;
 
     const now = performance.now();
 
-    // 최소 100ms 간격으로 전송 (최대 10fps)
     if (now - lastFrameTime >= 100) {
-      // requestId 생성
       const requestId = `req_${now}_${Math.floor(Math.random() * 10000)}`;
 
-      // 타입 오류 수정: rawLandmarks를 Landmark[] 타입으로 변환하여 전송
       const landmarksToSend: Landmark[] = rawLandmarks.map((lm) => ({
         id: lm.id,
         x: lm.x,
@@ -397,10 +423,9 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
         visibility: lm.visibility,
       }));
 
-      // 랜드마크 전송
       const sendSuccess = sendPose(landmarksToSend, requestId);
       if (sendSuccess) {
-        console.log("랜드마크 데이터 전송 성공");
+        console.log("운동 분석 데이터 전송 성공");
       }
       setLastFrameTime(now);
     }
@@ -411,8 +436,8 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
     sendPose,
     lastFrameTime,
     hasDisconnected,
-    isResting, // 🎯 휴식 상태 의존성 추가
-    isStartCountdown, // 🆕 시작 카운트다운 의존성 추가
+    isResting,
+    isStartCountdown,
   ]);
 
   // 서버 처리 결과 MediaPipe 형식 변환
@@ -442,6 +467,21 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
         </div>
       )}
 
+      {/* 🚨 낙상 감지 상태 표시 */}
+      <div className="absolute top-4 right-4 bg-gray-800 text-white px-4 py-2 rounded-lg shadow-lg z-10">
+        <p className="flex items-center text-sm">
+          🚨 낙상 감지: {fallMonitorConnected ? "✅ 활성" : "❌ 비활성"}
+        </p>
+      </div>
+
+      {/* 🚨 낙상 감지 알림 */}
+      {fallDetected && (
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-red-600 text-white px-8 py-4 rounded-lg shadow-xl z-50">
+          <p className="text-2xl font-bold text-center">🚨 낙상 감지! 🚨</p>
+          <p className="text-lg text-center mt-2">응급 연락이 진행 중입니다</p>
+        </div>
+      )}
+
       {/* 경고 메시지 표시 */}
       {warningMessage && !mediaPipeLoading && !mediaLoading && (
         <div className="absolute top-4 left-0 right-0 mx-auto w-max bg-orange-500 text-white px-4 py-2 rounded-lg shadow-lg z-10">
@@ -456,21 +496,21 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
         </div>
       )}
 
-      {/* 🎯 휴식 상태 표시 */}
+      {/* 휴식 상태 표시 */}
       {isResting && (
         <div className="absolute top-24 left-0 right-0 mx-auto w-max bg-blue-500 text-white px-4 py-2 rounded-lg shadow-lg z-10">
           <p className="flex items-center text-sm">😴 휴식 중...</p>
         </div>
       )}
 
-      {/* 🆕 시작 카운트다운 상태 표시 */}
+      {/* 시작 카운트다운 상태 표시 */}
       {isStartCountdown && (
         <div className="absolute top-32 left-0 right-0 mx-auto w-max bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-10">
           <p className="flex items-center text-sm">🏃‍♂️ 운동 준비 중...</p>
         </div>
       )}
 
-      {/* 비디오 및 시각화 컴포넌트 */}
+      {/* 비디오 및 시각화 컴포넌트 (기존 로직 유지) */}
       <div className="w-full h-full">
         <WebcamCapture
           onVideoElementReady={handleVideoElementReady}
@@ -491,7 +531,7 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
                 width={videoWidth}
                 height={videoHeight}
                 showFace={showFace}
-                color="#4ade80" // 밝은 녹색
+                color="#4ade80"
                 lineWidth={3}
                 pointSize={2}
               />
@@ -502,15 +542,15 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
             showGuideline &&
             processedMediaPipeResults &&
             !hasDisconnected &&
-            !isResting && // 🎯 휴식 중에는 가이드라인 숨김
-            !isStartCountdown && ( // 🆕 시작 카운트다운 중에는 가이드라인 숨김
+            !isResting &&
+            !isStartCountdown && (
               <MediaPipeVisualizer
                 videoElement={videoElement}
                 results={processedMediaPipeResults}
                 width={videoWidth}
                 height={videoHeight}
                 showFace={showFace}
-                color="#60a5fa" // 밝은 파란색
+                color="#60a5fa"
                 lineWidth={3}
                 pointSize={2}
                 isGuideline={true}
@@ -524,8 +564,8 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
             processedResult?.visualizationLandmarks &&
             processedResult.visualizationLandmarks.length > 0 &&
             !hasDisconnected &&
-            !isResting && // 🎯 휴식 중에는 차이 시각화 숨김
-            !isStartCountdown && ( // 🆕 시작 카운트다운 중에는 차이 시각화 숨김
+            !isResting &&
+            !isStartCountdown && (
               <PoseDifferenceVisualizer
                 videoElement={videoElement}
                 userLandmarks={rawLandmarks.map((lm) => ({
@@ -541,7 +581,7 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
               />
             )}
 
-          {/* 🆕 시작 카운트다운 오버레이 - 카메라 스트림 중앙에 표시 */}
+          {/* 시작 카운트다운 오버레이 - 카메라 스트림 중앙에 표시 */}
           {isStartCountdown && (
             <div className="absolute inset-0 bg-black bg-opacity-60 flex flex-col items-center justify-center z-30">
               <div className="text-yellow-400 font-bold text-6xl mb-4">
@@ -585,12 +625,12 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
           </div>
         )}
 
-        {/* 화면 우측 상단에 정확도 표시 - 🎯 수정된 부분: accuracy 사용 */}
+        {/* 화면 우측 상단에 정확도 표시 */}
         {!hasDisconnected &&
           !mediaPipeLoading &&
           !mediaLoading &&
           !isResting &&
-          !isStartCountdown && ( // 🆕 시작 카운트다운 중에는 정확도 숨김
+          !isStartCountdown && (
             <div className="absolute top-3 right-3 bg-black bg-opacity-70 rounded-lg p-3 text-white">
               <div className="flex items-center">
                 <span className="mr-2">정확도:</span>
