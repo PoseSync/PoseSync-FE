@@ -331,7 +331,7 @@ const RealTimeExercisePage: React.FC = () => {
   const [isTransmitting, setIsTransmitting] = useState(false);
   const [count, setCount] = useState(0);
   const [feedbacks, setFeedbacks] = useState<string[]>([]);
-  const [accuracy, setAccuracy] = useState<number>(75);
+  const [accuracy, setAccuracy] = useState<number>(0);
   const visualizationMode = "2d";
   const [isFullscreen, setIsFullscreen] = useState(false);
 
@@ -470,12 +470,11 @@ const RealTimeExercisePage: React.FC = () => {
       const newFeedbacks = [...prev, message];
       return newFeedbacks.slice(-10);
     });
+  }, []);
 
-    if (message.includes("자세가 정확합니다") || message.includes("좋습니다")) {
-      setAccuracy((prev) => Math.min(prev + 5, 100));
-    } else if (message.includes("수정") || message.includes("조정")) {
-      setAccuracy((prev) => Math.max(prev - 3, 0));
-    }
+  // 🆕 정확도 업데이트 함수
+  const handleAccuracyUpdate = useCallback((newAccuracy: number) => {
+    setAccuracy(newAccuracy);
   }, []);
 
   // 🎯 ✅ 자동 세트 종료 로직 추가
@@ -875,6 +874,7 @@ const RealTimeExercisePage: React.FC = () => {
                 visualizationMode={visualizationMode}
                 onCountUpdate={handleCountUpdate}
                 onFeedback={handleFeedback}
+                onAccuracyUpdate={handleAccuracyUpdate}
                 onSetComplete={handleSetComplete}
                 isTransmitting={isTransmitting}
                 isResting={isResting}

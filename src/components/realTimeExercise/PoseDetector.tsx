@@ -16,6 +16,7 @@ interface PoseDetectorProps {
   visualizationMode: string;
   onCountUpdate: (count: number) => void;
   onFeedback: (message: string) => void;
+  onAccuracyUpdate: (accuracy: number) => void; // 🆕 추가
   onSetComplete?: (setInfo: NextSetInfo) => void;
   isTransmitting: boolean;
   isResting?: boolean;
@@ -29,6 +30,7 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
   exerciseType,
   onCountUpdate,
   onFeedback,
+  onAccuracyUpdate, // 🆕 추가
   onSetComplete,
   isTransmitting,
   isResting = false,
@@ -346,6 +348,9 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
       if (feedback) {
         onFeedback(feedback);
       }
+
+      // 🆕 정확도 업데이트
+      onAccuracyUpdate(accuracy);
     }
 
     // 운동 카운트 업데이트
@@ -361,6 +366,7 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
     processedResult,
     onCountUpdate,
     onFeedback,
+    onAccuracyUpdate,
     mediaPipeLoading,
     videoElement,
     mediaLoading,
@@ -369,6 +375,7 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
     isResting,
     isStartCountdown,
     analyzePose,
+    accuracy,
   ]);
 
   // 운동 분석용 소켓 자동 연결 (기존 로직 유지)
