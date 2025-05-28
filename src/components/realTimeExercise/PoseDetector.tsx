@@ -21,7 +21,7 @@ interface PoseDetectorProps {
   isResting?: boolean;
   isStartCountdown?: boolean;
   startCountdown?: number;
-  onFallDetected?: () => void; // 🚨 새로 추가: 낙상 감지 콜백
+  onFallDetected?: () => void; // 🚨 낙상 감지 콜백
 }
 
 const PoseDetector: React.FC<PoseDetectorProps> = ({
@@ -34,7 +34,7 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
   isResting = false,
   isStartCountdown = false,
   startCountdown = 0,
-  onFallDetected, // 🚨 새로 추가
+  onFallDetected,
 }) => {
   // 기존 상태들...
   const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(
@@ -48,7 +48,7 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
   // 자세 분석 훅
   const { accuracy, analyzePose, resetAnalysis } = usePoseAnalysis();
 
-  // 🚨 낙상 감지 소켓 훅 추가
+  // 🚨 낙상 감지 소켓 훅
   const {
     isConnected: fallMonitorConnected,
     sendFallMonitorData,
