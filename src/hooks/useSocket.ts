@@ -283,16 +283,7 @@ export const useSocket = (options: UseSocketOptions) => {
         timeoutRef.current = null;
       }
 
-      // 소켓 정리
-      if (newSocket.connected) {
-        console.log("🔌 소켓 연결 해제 중...");
-        newSocket.emit("disconnect_client", {
-          phoneNumber: numericPhoneNumber,
-          count: currentCountRef.current || 0,
-        });
-      }
-
-      // 이벤트 리스너 제거
+      // 소켓 정리 (패킷 전송 없이 바로 정리)
       newSocket.removeAllListeners();
       newSocket.close();
     };
@@ -369,54 +360,6 @@ export const useSocket = (options: UseSocketOptions) => {
     socket.connect();
   }, [socket, isConnecting]);
 
-  // 연결 해제 함수
-  const disconnect = useCallback(() => {
-    if (!socket) {
-      console.error("소켓이 초기화되지 않음");
-      return;
-    }
-
-    if (!socket.connected) {
-      console.log("이미 연결 해제됨");
-      return;
-    }
-
-    // 타임아웃 클리어
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-      timeoutRef.current = null;
-    }
-
-    // 연결 해제 이벤트 전송 (숫자만 추출한 전화번호 사용)
-    console.log("🔌 연결 해제 중...");
-    socket.emit("disconnection", { phoneNumber: numericPhoneNumber });
-    socket.disconnect();
-  }, [socket, numericPhoneNumber]);
-
-  // 클라이언트 연결 해제 함수 (수정된 부분)
-  const disconnectClient = useCallback(() => {
-    if (!socket) {
-      console.error("소켓이 초기화되지 않음");
-      return;
-    }
-
-    if (!socket.connected) {
-      console.log("소켓이 연결되어 있지 않음");
-      return;
-    }
-
-    console.log("🔴 disconnect_client 패킷 전송 중...");
-    console.log("현재 운동 횟수:", currentCountRef.current);
-
-    // 서버에 disconnect_client 패킷 전송 (현재 운동 횟수와 함께, 숫자만 추출한 전화번호 사용)
-    socket.emit("disconnect_client", {
-      phoneNumber: numericPhoneNumber,
-      count: currentCountRef.current,
-    });
-
-    console.log("✅ disconnect_client 패킷 전송 완료");
-  }, [socket, numericPhoneNumber]); // 서버에서 연결을 끊어주는 것으로 변경
-
   // 포즈 데이터 전송 함수
   const sendPose = useCallback(
     (landmarks: Landmark[], requestId?: string): boolean => {
@@ -464,8 +407,6 @@ export const useSocket = (options: UseSocketOptions) => {
     isConnected,
     isConnecting,
     connect,
-    disconnect,
-    disconnectClient,
     sendPose,
     processedResult,
     error,
