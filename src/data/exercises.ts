@@ -41,7 +41,7 @@ export const exercises: Exercise[] = [
       "발을 어깨너비로 벌리고, 햄직각이 바닥과 수평을 이룰 때까지 앉았다 일어나는 동작",
     detailDescription:
       "어깨너비로 다리를 벌리고 앉았다 일어나는 동작으로, 햄직각이 바닥과 수평이 될 때까지 내려간다. 바벨을 들면 효과가 강해지며, 대퇴사두근, 대둔근, 척추기립근을 주로 단련한다.",
-    available: true, // 사용 가능
+    available: false, // 사용 가능
   },
   {
     name: "런지",
@@ -52,7 +52,7 @@ export const exercises: Exercise[] = [
       "런지는 다리를 내딛고 앉아 양쪽이하 하부지지를 단련하는 운동이다.",
     detailDescription:
       "런지는 한쪽 다리를 앞으로 내딛고 앉는 동작으로, 엉덩이와 허벅지 주로 단련한다. 밸런스를 덜면 효과가 좋아진다.",
-    available: true, // 사용 가능
+    available: false, // 사용 가능
   },
   {
     name: "숄더 프레스",

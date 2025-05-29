@@ -227,6 +227,27 @@ const TransmitButton = styled.button<{
   opacity: ${(props) => (props.$disabled ? 0.5 : 1)};
 `;
 
+// 🎯 결과보기 버튼 스타일 추가
+const ResultButton = styled.button<{ $disabled?: boolean }>`
+  background: ${(props) =>
+    props.$disabled ? "var(--gray-600)" : "var(--blue-600)"};
+  padding: 20px;
+  border-radius: var(--radius-xs);
+  color: ${(props) => (props.$disabled ? "var(--gray-400)" : "white")};
+  border: none;
+  cursor: ${(props) => (props.$disabled ? "not-allowed" : "pointer")};
+  font-family: "Pretendard Variable", sans-serif;
+  font-size: 36px;
+  width: 100%;
+  opacity: ${(props) => (props.$disabled ? 0.5 : 1)};
+  transition: all 0.3s ease;
+
+  &:hover {
+    background: ${(props) =>
+      props.$disabled ? "var(--gray-600)" : "var(--blue-700)"};
+  }
+`;
+
 // 피드백 컨테이너
 const FeedbackContainer = styled.div`
   flex: 1;
@@ -239,13 +260,41 @@ const FeedbackContainer = styled.div`
   overflow-y: auto;
 `;
 
+// 🎯 피드백 헤더 스타일 추가 (제목과 결과보기 버튼을 나란히 배치)
+const FeedbackHeader = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+`;
+
 // 피드백 제목
 const FeedbackTitle = styled.div`
   color: var(--white);
   font-family: "Pretendard Variable", sans-serif;
   font-weight: 600;
   font-size: 48px;
-  margin-bottom: 20px;
+`;
+
+// 🎯 결과보기 버튼 (작은 크기)
+const SmallResultButton = styled.button<{ $disabled?: boolean }>`
+  background: ${(props) =>
+    props.$disabled ? "var(--gray-600)" : "var(--blue-600)"};
+  padding: 12px 24px;
+  border-radius: var(--radius-xs);
+  color: ${(props) => (props.$disabled ? "var(--gray-400)" : "white")};
+  border: none;
+  cursor: ${(props) => (props.$disabled ? "not-allowed" : "pointer")};
+  font-family: "Pretendard Variable", sans-serif;
+  font-size: 32px;
+  opacity: ${(props) => (props.$disabled ? 0.5 : 1)};
+  transition: all 0.3s ease;
+  white-space: nowrap;
+
+  &:hover {
+    background: ${(props) =>
+      props.$disabled ? "var(--gray-600)" : "var(--blue-700)"};
+  }
 `;
 
 // 피드백 메시지 - 중요도에 따라 다른 스타일 적용 ($ 접두사 사용)
@@ -375,6 +424,34 @@ const RealTimeExercisePage: React.FC = () => {
     dumbbell_row: "덤벨로우",
     front_raise: "프론트레이즈",
     incline_bench_press: "인클라인 벤치프레스",
+  };
+
+  // 🎯 목표 횟수 달성 여부 확인 함수
+  const isTargetReached = useCallback(() => {
+    const currentSetData =
+      nextSetInfo ||
+      (sets && sets.length > 0 && currentSet <= sets.length
+        ? sets[currentSet - 1]
+        : { weight: 0, reps: 5 });
+
+    const targetReps = currentSetData.reps || 5;
+    return count >= targetReps;
+  }, [count, currentSet, sets, nextSetInfo]);
+
+  // 🎯 결과보기 버튼 클릭 핸들러
+  const handleViewResult = () => {
+    // 🎵 음성 중단
+    stopAllAudio();
+    stopFallAudio();
+
+    // 낙상 감지 타이머 정리
+    if (fallCountdownRef.current) {
+      clearInterval(fallCountdownRef.current);
+      fallCountdownRef.current = null;
+    }
+
+    // 먼저 완료 페이지로 이동
+    navigate("/completed");
   };
 
   // 🚨 낙상 감지 처리 함수
@@ -1061,11 +1138,31 @@ const RealTimeExercisePage: React.FC = () => {
                     ? "전송 중지"
                     : "전송 시작"}
                 </TransmitButton>
+
+                {/* 🎯 결과보기 버튼 추가 */}
+                <ResultButton
+                  $disabled={!isTargetReached()}
+                  onClick={handleViewResult}
+                >
+                  결과보기{" "}
+                  {!isTargetReached() &&
+                    `(${currentSetData.reps - count}회 더 필요)`}
+                </ResultButton>
               </ControlPanel>
 
               {/* 하단: 피드백 메시지 영역 */}
               <FeedbackContainer>
-                <FeedbackTitle>실시간 피드백</FeedbackTitle>
+                {/* 🎯 피드백 헤더 (제목과 작은 결과보기 버튼) */}
+                <FeedbackHeader>
+                  <FeedbackTitle>실시간 피드백</FeedbackTitle>
+                  <SmallResultButton
+                    $disabled={!isTargetReached()}
+                    onClick={handleViewResult}
+                  >
+                    ☰
+                  </SmallResultButton>
+                </FeedbackHeader>
+
                 {feedbacks.map((feedback, index) => {
                   const isImportant =
                     feedback.includes("자세가 크게 벗어났습니다") ||
