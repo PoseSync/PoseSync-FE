@@ -810,15 +810,25 @@ const RealTimeExercisePage: React.FC = () => {
 
       // 10초 카운트다운
       let currentCountdown = 10;
+      // 10초 카운트다운 부분 (toggleTransmission 함수 내부)
       const countdownInterval = setInterval(() => {
         currentCountdown--;
         setStartCountdown(currentCountdown);
 
         if (currentCountdown <= 0) {
           clearInterval(countdownInterval);
-          clearTimeout(startAudioTimeout); // 타임아웃 정리
+          clearTimeout(startAudioTimeout);
+
+          console.log("🟢 카운트다운 완료 - 상태 변경 시작");
+          console.log("🔍 카운트다운 완료 전 상태:", {
+            isStartCountdown: true,
+            isTransmitting: false,
+          });
+
           setIsStartCountdown(false);
           setIsTransmitting(true);
+
+          console.log("🟢 setIsTransmitting(true) 호출 완료");
 
           // 피드백 및 정확도 초기화
           setAccuracy(75);

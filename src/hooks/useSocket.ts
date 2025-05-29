@@ -220,12 +220,13 @@ export const useSocket = (options: UseSocketOptions) => {
           }
         }
 
-        // 🆕 낙상 감지 처리 추가
+        // 🆕 낙상 감지 처리 (가이드라인 유지하면서)
         if (data.is_fall === true) {
           console.log("🚨🚨🚨 운동 중 낙상 감지됨! 🚨🚨🚨");
           if (onFallDetected) {
             onFallDetected();
           }
+          // ✅ 낙상 감지 시에도 return하지 않고 계속 진행하여 가이드라인 유지
         }
 
         // 운동 횟수 업데이트 - 서버의 count 필드 사용
@@ -237,6 +238,7 @@ export const useSocket = (options: UseSocketOptions) => {
           data.exerciseCount = data.count;
         }
 
+        // ✅ 낙상 감지 여부와 관계없이 항상 processedResult 설정 (가이드라인 유지)
         setProcessedResult(data);
       }
     );

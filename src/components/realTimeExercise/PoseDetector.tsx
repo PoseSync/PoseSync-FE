@@ -117,7 +117,7 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
   } = useSocket({
     phoneNumber,
     exerciseType,
-    autoConnect: false,
+    autoConnect: true,
     onSetComplete,
     onFallDetected, // 🆕 운동용 소켓에서도 낙상 감지 처리
   });
@@ -386,7 +386,6 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
       rawLandmarks.length > 0 &&
       !isConnected &&
       !isConnecting &&
-      isTransmitting &&
       !hasDisconnected &&
       !isResting &&
       !isStartCountdown
@@ -400,7 +399,6 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
     isConnected,
     isConnecting,
     connect,
-    isTransmitting,
     hasDisconnected,
     isResting,
     isStartCountdown,
@@ -418,27 +416,28 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
     )
       return;
 
-    const now = performance.now();
+    if (isTransmitting) {
+      const now = performance.now();
 
-    if (now - lastFrameTime >= 100) {
-      const requestId = `req_${now}_${Math.floor(Math.random() * 10000)}`;
+      if (now - lastFrameTime >= 100) {
+        const requestId = `req_${now}_${Math.floor(Math.random() * 10000)}`;
 
-      const landmarksToSend: Landmark[] = rawLandmarks.map((lm) => ({
-        id: lm.id,
-        x: lm.x,
-        y: lm.y,
-        z: lm.z,
-        visibility: lm.visibility,
-      }));
+        const landmarksToSend: Landmark[] = rawLandmarks.map((lm) => ({
+          id: lm.id,
+          x: lm.x,
+          y: lm.y,
+          z: lm.z,
+          visibility: lm.visibility,
+        }));
 
-      const sendSuccess = sendPose(landmarksToSend, requestId);
-      if (sendSuccess) {
-        console.log("운동 분석 데이터 전송 성공");
+        const sendSuccess = sendPose(landmarksToSend, requestId);
+        if (sendSuccess) {
+          console.log("운동 분석 데이터 전송 성공");
+        }
+        setLastFrameTime(now);
       }
-      setLastFrameTime(now);
     }
   }, [
-    isTransmitting,
     isConnected,
     rawLandmarks,
     sendPose,
