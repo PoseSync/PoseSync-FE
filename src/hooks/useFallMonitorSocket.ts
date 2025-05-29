@@ -107,7 +107,7 @@ export const useFallMonitorSocket = (options: UseFallMonitorSocketOptions) => {
     return () => {
       mountedRef.current = false;
 
-      // 소켓 정리 전에 disconnect_monitor 패킷 전송
+      // 🎯 중요: disconnect_client 패킷 제거, disconnect_monitor만 전송
       if (newSocket.connected) {
         console.log("🔌 낙상 감지 소켓 연결 해제 중...");
         newSocket.emit("disconnect_monitor", {
@@ -146,7 +146,7 @@ export const useFallMonitorSocket = (options: UseFallMonitorSocketOptions) => {
     socket.connect();
   }, [socket, isConnecting]);
 
-  // 연결 해제 함수
+  // 연결 해제 함수 (수동 호출용)
   const disconnect = useCallback(() => {
     if (!socket) {
       console.error("낙상 감지 소켓이 초기화되지 않음");
@@ -158,7 +158,8 @@ export const useFallMonitorSocket = (options: UseFallMonitorSocketOptions) => {
       return;
     }
 
-    console.log("🔌 낙상 감지 소켓 연결 해제 중...");
+    console.log("🔌 낙상 감지 소켓 수동 연결 해제 중...");
+    // 🎯 disconnect_monitor만 전송 (disconnect_client 제거)
     socket.emit("disconnect_monitor", { phoneNumber: numericPhoneNumber });
     socket.disconnect();
   }, [socket, numericPhoneNumber]);
@@ -188,7 +189,7 @@ export const useFallMonitorSocket = (options: UseFallMonitorSocketOptions) => {
         socket.emit("monitor_fall", data);
         lastSentRef.current = now;
 
-        console.log("📡 낙상 감지 전용 데이터 전송 성공 (monitor_fall)"); // ✅ 로그 수정
+        console.log("📡 낙상 감지 전용 데이터 전송 성공 (monitor_fall)");
         return true;
       } catch (err) {
         console.error("낙상 감지 데이터 전송 오류:", err);
