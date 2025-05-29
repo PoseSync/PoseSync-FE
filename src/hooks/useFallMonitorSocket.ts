@@ -168,7 +168,7 @@ export const useFallMonitorSocket = (options: UseFallMonitorSocketOptions) => {
         return false;
       }
 
-      // 전송 속도 제한 (200ms 당 최대 1회 - 낙상 감지는 덜 빈번해도 됨)
+      // 전송 속도 제한 (200ms 당 최대 1회)
       const now = Date.now();
       if (now - lastSentRef.current < 200) {
         return false;
@@ -183,11 +183,10 @@ export const useFallMonitorSocket = (options: UseFallMonitorSocketOptions) => {
           requestId,
         };
 
-        // monitor_fall 이벤트로 전송
         socket.emit("monitor_fall", data);
         lastSentRef.current = now;
 
-        console.log("📡 낙상 감지 데이터 전송 성공");
+        console.log("📡 낙상 감지 전용 데이터 전송 성공 (monitor_fall)"); // ✅ 로그 수정
         return true;
       } catch (err) {
         console.error("낙상 감지 데이터 전송 오류:", err);

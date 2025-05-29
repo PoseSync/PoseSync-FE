@@ -429,16 +429,13 @@ export const useSocket = (options: UseSocketOptions) => {
       }
 
       try {
-        // 외부에서 requestId를 전달받지 않은 경우 생성
         const finalRequestId =
           requestId || `req_${now}_${Math.floor(Math.random() * 10000)}`;
 
-        // 시작 시간 기록
         latencyRecordsRef.current[finalRequestId] = {
           startTime: performance.now(),
         };
 
-        // 데이터 객체 생성 (숫자만 추출한 전화번호 사용)
         const data = {
           phoneNumber: numericPhoneNumber,
           exerciseType,
@@ -446,9 +443,12 @@ export const useSocket = (options: UseSocketOptions) => {
           requestId: finalRequestId,
         };
 
-        // 데이터 전송
         socket.emit("exercise_data", data);
         lastSentRef.current = now;
+
+        console.log(
+          "📡 운동 분석 + 낙상 감지 데이터 전송 성공 (exercise_data)"
+        ); // ✅ 로그 수정
         return true;
       } catch (err) {
         console.error("데이터 전송 오류:", err);

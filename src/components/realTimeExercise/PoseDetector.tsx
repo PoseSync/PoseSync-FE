@@ -146,7 +146,10 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
       fallMonitorConnected &&
       rawLandmarks.length > 0 &&
       !mediaPipeLoading &&
-      !mediaLoading
+      !mediaLoading &&
+      !isTransmitting && // ✅ 추가: 운동 중이 아닐 때만
+      !isResting && // ✅ 추가: 휴식 중이 아닐 때만
+      !isStartCountdown // ✅ 추가: 시작 카운트다운 중이 아닐 때만
     ) {
       // 200ms마다 한 번씩 낙상 감지 데이터 전송
       const now = performance.now();
@@ -172,6 +175,9 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
     mediaLoading,
     sendFallMonitorData,
     lastFrameTime,
+    isTransmitting, // ✅ 의존성 추가
+    isResting, // ✅ 의존성 추가
+    isStartCountdown, // ✅ 의존성 추가
   ]);
 
   // MediaPipe 오류 상태 표시
