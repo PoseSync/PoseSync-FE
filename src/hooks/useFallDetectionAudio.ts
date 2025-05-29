@@ -105,7 +105,7 @@ export const useFallDetectionAudio = (): FallDetectionAudioHook => {
     try {
       console.log("🚨 낙상 감지 알림 시작");
 
-      // 기존 재생 중단
+      // ✅ 기존 재생 중단 (타이머 포함)
       stopAllAudio();
 
       // 사이렌 설정 및 재생
@@ -115,9 +115,9 @@ export const useFallDetectionAudio = (): FallDetectionAudioHook => {
       await sirenAudioRef.current.play();
       console.log("🚨 사이렌 재생 시작 (5초 제한)");
 
-      // 5초 후 사이렌 중단하고 음성 재생
+      // ✅ 새로운 타이머 설정 (5초 후 사이렌 중단하고 음성 재생)
       timeoutRef.current = setTimeout(() => {
-        if (sirenAudioRef.current) {
+        if (sirenAudioRef.current && !sirenAudioRef.current.paused) {
           sirenAudioRef.current.pause();
           sirenAudioRef.current.currentTime = 0;
           console.log("🚨 사이렌 5초 재생 완료");
@@ -130,28 +130,34 @@ export const useFallDetectionAudio = (): FallDetectionAudioHook => {
     }
   }, [playEmergencyVoice]);
 
-  // 모든 오디오 중단
+  // ✅ 모든 오디오 중단 (수정된 부분)
   const stopAllAudio = useCallback(() => {
-    // 타이머 정리
+    console.log("🛑 모든 낙상 감지 오디오 중단 시작");
+
+    // ✅ 1. 먼저 타이머 정리 (가장 중요!)
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
       timeoutRef.current = null;
+      console.log("⏰ setTimeout 타이머 정리 완료");
     }
 
-    // 사이렌 중단
+    // ✅ 2. 사이렌 중단
     if (sirenAudioRef.current) {
       sirenAudioRef.current.pause();
       sirenAudioRef.current.currentTime = 0;
+      console.log("🚨 사이렌 중단 완료");
     }
 
-    // 음성 중단
+    // ✅ 3. 음성 중단
     if (voiceAudioRef.current) {
       voiceAudioRef.current.pause();
       voiceAudioRef.current.currentTime = 0;
+      console.log("🔊 음성 중단 완료");
     }
 
+    // ✅ 4. 상태 초기화
     setIsPlaying(false);
-    console.log("🚨 낙상 감지 음성 모두 중단");
+    console.log("🚨 낙상 감지 음성 모두 중단 완료");
   }, []);
 
   return {
