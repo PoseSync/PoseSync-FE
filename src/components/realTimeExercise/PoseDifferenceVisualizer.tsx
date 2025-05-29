@@ -10,7 +10,8 @@ interface PoseDifferenceVisualizerProps {
 }
 
 /**
- * 사용자 관절 위치에 정확도 상태를 표시하는 시각화 컴포넌트
+ * 사용자 관절 위치에 부정확한 자세만 표시하는 시각화 컴포넌트
+ * 정확한 자세는 원을 표시하지 않고, 부정확한 자세만 주황색 원으로 표시
  */
 const PoseDifferenceVisualizer: React.FC<PoseDifferenceVisualizerProps> = ({
   videoElement,
@@ -35,7 +36,7 @@ const PoseDifferenceVisualizer: React.FC<PoseDifferenceVisualizerProps> = ({
     if (!ctx) return;
 
     try {
-      // 🆕 모든 주요 관절 ID (하체 + 상체 팔 관절 모두 포함)
+      // 모든 주요 관절 ID (하체 + 상체 팔 관절)
       const KEY_JOINTS = [
         // 하체 관절
         23,
@@ -77,12 +78,12 @@ const PoseDifferenceVisualizer: React.FC<PoseDifferenceVisualizerProps> = ({
         }
       });
 
-      // 모든 주요 관절에 대해서 정확도 상태 표시
+      // 부정확한 자세만 표시
       KEY_JOINTS.forEach((jointId) => {
         const guideLm = guidelineMap[jointId];
         const userLm = userMap[jointId];
 
-        // 사용자 랜드마크가 존재하고 가시성이 충분한 경우에만 표시
+        // 사용자 랜드마크가 존재하고 가시성이 충분한 경우에만 체크
         if (!userLm || (userLm.visibility && userLm.visibility < 0.5)) {
           return;
         }
@@ -92,7 +93,6 @@ const PoseDifferenceVisualizer: React.FC<PoseDifferenceVisualizerProps> = ({
           return;
         }
 
-        // 🔧 수정: 올바른 좌표 변환
         // 사용자 관절 위치 계산 (0~1 정규화된 좌표를 화면 좌표로 변환)
         const userX = userLm.x * canvas.width;
         const userY = userLm.y * canvas.height;
@@ -106,168 +106,152 @@ const PoseDifferenceVisualizer: React.FC<PoseDifferenceVisualizerProps> = ({
           Math.pow(userX - guideX, 2) + Math.pow(userY - guideY, 2)
         );
 
-        // 🆕 관절별 목표 구역 반지름 조정 (손목/팔꿈치는 조금 더 작게)
-        let targetRadius;
+        // 관절별 허용 오차 반지름 설정
+        let toleranceRadius;
         if ([15, 16].includes(jointId)) {
-          // 손목: 화면 크기의 2.5%
-          targetRadius = Math.min(canvas.width, canvas.height) * 0.025;
+          // 손목: 조금 더 관대하게
+          toleranceRadius = Math.min(canvas.width, canvas.height) * 0.035;
         } else if ([13, 14].includes(jointId)) {
-          // 팔꿈치: 화면 크기의 2.8%
-          targetRadius = Math.min(canvas.width, canvas.height) * 0.028;
+          // 팔꿈치: 중간 정도
+          toleranceRadius = Math.min(canvas.width, canvas.height) * 0.032;
         } else {
-          // 기타 관절: 화면 크기의 3%
-          targetRadius = Math.min(canvas.width, canvas.height) * 0.03;
+          // 기타 관절: 기본값
+          toleranceRadius = Math.min(canvas.width, canvas.height) * 0.03;
         }
 
-        const isInTargetZone = distance <= targetRadius;
+        // ⭐ 핵심 변경: 허용 오차를 벗어난 경우에만 원 표시
+        const isInaccurate = distance > toleranceRadius;
 
-        // 맥박 효과 (부드러운 애니메이션)
-        const pulsePhase = (Date.now() / 1000) * 3; // 3초 주기
-        const pulseMultiplier = 1 + Math.sin(pulsePhase) * 0.2; // 20% 변화
-        const currentRadius = targetRadius * pulseMultiplier;
-
-        // 정확도에 따른 색상 결정
-        if (isInTargetZone) {
-          // 정확한 자세: 초록색
-          ctx.fillStyle = "rgba(34, 197, 94, 0.4)"; // 연한 초록색
-          ctx.strokeStyle = "rgba(34, 197, 94, 0.8)"; // 진한 초록색
-        } else {
-          // 부정확한 자세: 거리에 따라 주황색~빨간색 그라데이션
-          const maxDistance = Math.min(canvas.width, canvas.height) * 0.15; // 최대 거리
+        if (isInaccurate) {
+          // 거리에 따른 원 크기 및 투명도 조정
+          const maxDistance = Math.min(canvas.width, canvas.height) * 0.15;
           const normalizedDistance = Math.min(distance / maxDistance, 1);
 
-          if (normalizedDistance < 0.5) {
-            // 가까운 거리: 주황색
-            ctx.fillStyle = "rgba(251, 146, 60, 0.4)"; // 연한 주황색
-            ctx.strokeStyle = "rgba(251, 146, 60, 0.8)"; // 진한 주황색
-          } else {
-            // 먼 거리: 빨간색
-            ctx.fillStyle = "rgba(239, 68, 68, 0.4)"; // 연한 빨간색
-            ctx.strokeStyle = "rgba(239, 68, 68, 0.8)"; // 진한 빨간색
-          }
-        }
+          // 맥박 효과
+          const pulsePhase = (Date.now() / 1000) * 4; // 4초 주기로 빠르게
+          const pulseMultiplier = 1 + Math.sin(pulsePhase) * 0.3; // 30% 변화
+          const currentRadius =
+            toleranceRadius * (1 + normalizedDistance * 0.5) * pulseMultiplier;
 
-        // 🔧 거울 모드 적용 (MediaPipeVisualizer와 동일하게)
-        ctx.save();
-        ctx.scale(-1, 1);
-        ctx.translate(-canvas.width, 0);
+          // 💡 기존 색상과 겹치지 않는 주황색 계열 사용
+          // 녹색(사용자): #4ade80, 파란색(가이드라인): #60a5fa
+          // 주황색 계열로 차별화
+          const alpha = 0.4 + normalizedDistance * 0.3; // 거리에 따라 투명도 증가
 
-        // 사용자 관절 위치에 상태 원 그리기
-        ctx.beginPath();
-        ctx.arc(userX, userY, currentRadius, 0, 2 * Math.PI);
-        ctx.fill();
+          ctx.fillStyle = `rgba(255, 140, 0, ${alpha})`; // 주황색 반투명
+          ctx.strokeStyle = `rgba(255, 100, 0, 0.8)`; // 진한 주황색 테두리
 
-        // 테두리 그리기
-        ctx.lineWidth = 3;
-        ctx.setLineDash([]); // 실선
-        ctx.stroke();
+          // 거울 모드 적용
+          ctx.save();
+          ctx.scale(-1, 1);
+          ctx.translate(-canvas.width, 0);
 
-        // 중앙에 작은 점 표시 (관절의 정확한 위치)
-        ctx.fillStyle = isInTargetZone
-          ? "rgba(34, 197, 94, 1)"
-          : "rgba(255, 255, 255, 0.9)";
-        ctx.beginPath();
-        ctx.arc(userX, userY, 4, 0, 2 * Math.PI);
-        ctx.fill();
-
-        // 매우 부정확한 경우 가이드라인 방향 힌트 표시
-        if (!isInTargetZone && distance > targetRadius * 2) {
-          // 사용자 관절에서 가이드라인 방향으로 화살표 표시
-          const angle = Math.atan2(guideY - userY, guideX - userX);
-          const arrowLength = currentRadius * 0.8;
-          const arrowEndX = userX + Math.cos(angle) * arrowLength;
-          const arrowEndY = userY + Math.sin(angle) * arrowLength;
-
-          // 화살표 선
-          ctx.strokeStyle = "rgba(255, 255, 255, 0.8)";
-          ctx.lineWidth = 2;
+          // 부정확한 자세 표시 원 그리기
           ctx.beginPath();
-          ctx.moveTo(userX, userY);
-          ctx.lineTo(arrowEndX, arrowEndY);
+          ctx.arc(userX, userY, currentRadius, 0, 2 * Math.PI);
+          ctx.fill();
+
+          // 테두리 그리기
+          ctx.lineWidth = 3;
+          ctx.setLineDash([]); // 실선
           ctx.stroke();
 
-          // 화살표 머리
-          const arrowHeadLength = 8;
-          const arrowHeadAngle = Math.PI / 6; // 30도
+          // 중앙에 경고 표시 (!)
+          ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
+          ctx.font = `${Math.max(16, currentRadius * 0.4)}px Arial`;
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText("!", userX, userY);
 
-          ctx.beginPath();
-          ctx.moveTo(arrowEndX, arrowEndY);
-          ctx.lineTo(
-            arrowEndX - arrowHeadLength * Math.cos(angle - arrowHeadAngle),
-            arrowEndY - arrowHeadLength * Math.sin(angle - arrowHeadAngle)
-          );
-          ctx.moveTo(arrowEndX, arrowEndY);
-          ctx.lineTo(
-            arrowEndX - arrowHeadLength * Math.cos(angle + arrowHeadAngle),
-            arrowEndY - arrowHeadLength * Math.sin(angle + arrowHeadAngle)
-          );
-          ctx.stroke();
-        }
+          // 매우 부정확한 경우 방향 힌트 표시
+          if (distance > toleranceRadius * 2) {
+            const angle = Math.atan2(guideY - userY, guideX - userX);
+            const arrowLength = currentRadius * 0.6;
+            const arrowEndX = userX + Math.cos(angle) * arrowLength;
+            const arrowEndY = userY + Math.sin(angle) * arrowLength;
 
-        // 개발 모드에서만 관절 이름과 거리 표시
-        if (
-          typeof window !== "undefined" &&
-          window.location.hostname === "localhost"
-        ) {
-          const jointNames: Record<number, string> = {
-            // 하체
-            23: "왼골반",
-            24: "오른골반",
-            25: "왼무릎",
-            26: "오른무릎",
-            27: "왼발목",
-            28: "오른발목",
+            // 화살표 선
+            ctx.strokeStyle = "rgba(255, 255, 255, 0.9)";
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(userX, userY);
+            ctx.lineTo(arrowEndX, arrowEndY);
+            ctx.stroke();
 
-            // 상체
-            11: "왼어깨",
-            12: "오른어깨",
-            13: "왼팔꿈치", // ✅ 추가
-            14: "오른팔꿈치", // ✅ 추가
-            15: "왼손목", // ✅ 추가
-            16: "오른손목", // ✅ 추가
-          };
+            // 화살표 머리
+            const arrowHeadLength = 12;
+            const arrowHeadAngle = Math.PI / 6; // 30도
 
-          const jointName = jointNames[jointId];
-          if (jointName) {
-            // 배경
-            ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
-            ctx.fillRect(userX - 30, userY - currentRadius - 35, 60, 25);
-
-            // 텍스트
-            ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
-            ctx.font = "12px Arial";
-            ctx.textAlign = "center";
-            ctx.fillText(jointName, userX, userY - currentRadius - 18);
-            ctx.fillText(
-              `${Math.round(distance)}px`,
-              userX,
-              userY - currentRadius - 5
+            ctx.beginPath();
+            ctx.moveTo(arrowEndX, arrowEndY);
+            ctx.lineTo(
+              arrowEndX - arrowHeadLength * Math.cos(angle - arrowHeadAngle),
+              arrowEndY - arrowHeadLength * Math.sin(angle - arrowHeadAngle)
             );
+            ctx.moveTo(arrowEndX, arrowEndY);
+            ctx.lineTo(
+              arrowEndX - arrowHeadLength * Math.cos(angle + arrowHeadAngle),
+              arrowEndY - arrowHeadLength * Math.sin(angle + arrowHeadAngle)
+            );
+            ctx.stroke();
           }
-        }
 
-        // 🔧 거울 모드 복원
-        ctx.restore();
+          // 개발 모드에서만 관절 이름과 거리 표시
+          if (
+            typeof window !== "undefined" &&
+            window.location.hostname === "localhost"
+          ) {
+            const jointNames: Record<number, string> = {
+              23: "왼골반",
+              24: "오른골반",
+              25: "왼무릎",
+              26: "오른무릎",
+              27: "왼발목",
+              28: "오른발목",
+              11: "왼어깨",
+              12: "오른어깨",
+              13: "왼팔꿈치",
+              14: "오른팔꿈치",
+              15: "왼손목",
+              16: "오른손목",
+            };
+
+            const jointName = jointNames[jointId];
+            if (jointName) {
+              // 배경
+              ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+              ctx.fillRect(userX - 35, userY - currentRadius - 40, 70, 30);
+
+              // 텍스트
+              ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
+              ctx.font = "12px Arial";
+              ctx.textAlign = "center";
+              ctx.fillText(jointName, userX, userY - currentRadius - 25);
+              ctx.fillText(
+                `${Math.round(distance)}px`,
+                userX,
+                userY - currentRadius - 10
+              );
+            }
+          }
+
+          ctx.restore();
+        }
+        // ⭐ 정확한 자세는 아무것도 표시하지 않음 (원 없음)
       });
 
-      // 🆕 업데이트된 설명 텍스트 (화면 하단에 작게)
+      // 업데이트된 설명 텍스트 (화면 하단)
       ctx.fillStyle = "rgba(0, 0, 0, 0.8)";
-      ctx.fillRect(10, canvas.height - 100, 350, 90);
+      ctx.fillRect(10, canvas.height - 70, 320, 60);
 
       ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
       ctx.font = "14px Arial";
       ctx.textAlign = "left";
-      ctx.fillText(
-        "관절 정확도 (하체+상체 모든 관절):",
-        15,
-        canvas.height - 80
-      );
-      ctx.fillText("🟢 초록색 = 정확함", 15, canvas.height - 60);
-      ctx.fillText("🟠 주황색 = 조금 벗어남", 15, canvas.height - 40);
-      ctx.fillText("🔴 빨간색 = 많이 벗어남", 15, canvas.height - 20);
-      ctx.fillText("→ 흰색 화살표 = 이동 방향", 180, canvas.height - 40);
+      ctx.fillText("자세 교정 가이드:", 15, canvas.height - 50);
+      ctx.fillText("🟠 주황색 원 = 교정 필요", 15, canvas.height - 30);
+      ctx.fillText("→ 흰색 화살표 = 이동 방향", 15, canvas.height - 10);
     } catch (error) {
-      console.error("사용자 관절 정확도 시각화 중 오류:", error);
+      console.error("자세 차이 시각화 중 오류:", error);
     }
   }, [videoElement, userLandmarks, guidelineLandmarks, width, height]);
 

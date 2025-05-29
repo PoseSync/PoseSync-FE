@@ -3,12 +3,15 @@ import styled from "styled-components";
 import { useLocation } from "react-router-dom";
 import Gnb from "../../components/gnb/Gnb";
 import PoseDetector from "../../components/realTimeExercise/PoseDetector";
+import FallDetectionPopup from "../../components/realTimeExercise/FallDetectionPopup";
 import { useNavigate } from "react-router-dom";
 import { useExerciseStore } from "../../store/useExerciseStore";
 import { useUserStore } from "../../store/useUserStore";
 import { exercises, Exercise } from "../../data/exercises";
 import { NextSetInfo } from "../../types"; // NextSetInfo import
 import { useAudioGuide } from "../../hooks/useAudioGuide"; // 🎵 음성 안내 훅
+import { useFallDetectionAudio } from "../../hooks/useFallDetectionAudio"; // 🚨 낙상 감지 음성 훅
+import axios from "axios";
 
 const FullScreen = styled.div`
   width: 3840px;
@@ -324,6 +327,10 @@ const RealTimeExercisePage: React.FC = () => {
   // 🎵 음성 안내 훅 사용
   const { playStartGuide, playCountGuide, stopAllAudio } = useAudioGuide();
 
+  // 🚨 낙상 감지 음성 훅 사용
+  const { playFallAlert, stopAllAudio: stopFallAudio } =
+    useFallDetectionAudio();
+
   // 테스트용 전화번호 설정
   const testPhoneNumber = "01012345678";
 
@@ -350,7 +357,10 @@ const RealTimeExercisePage: React.FC = () => {
   // 🎵 이전 횟수 추적 (중복 음성 방지)
   const [prevCount, setPrevCount] = useState(0);
 
-  const [fallAlert, setFallAlert] = useState(false);
+  // 🚨 낙상 감지 관련 상태
+  const [showFallPopup, setShowFallPopup] = useState(false);
+  const [fallCountdown, setFallCountdown] = useState(30);
+  const fallCountdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // 서버 변수명과 운동 이름 매핑
   const exerciseTypeMapping: Record<string, string> = {
@@ -366,6 +376,93 @@ const RealTimeExercisePage: React.FC = () => {
     front_raise: "프론트레이즈",
     incline_bench_press: "인클라인 벤치프레스",
   };
+
+  // 🚨 낙상 감지 처리 함수
+  const handleFallDetected = useCallback(() => {
+    console.log("🚨 낙상 감지됨 - 팝업 표시 및 카운트다운 시작");
+
+    // 운동 중이었다면 일시 중단
+    if (isTransmitting) {
+      setIsTransmitting(false);
+      handleFeedback("⚠️ 낙상 감지로 인해 운동이 일시 중단됩니다.");
+    }
+
+    // 기존 운동 음성 중단
+    stopAllAudio();
+
+    // 낙상 감지 음성 재생
+    playFallAlert();
+
+    // 팝업 표시 및 카운트다운 시작
+    setShowFallPopup(true);
+    setFallCountdown(30);
+
+    // 30초 카운트다운 시작
+    let countdown = 30;
+    fallCountdownRef.current = setInterval(() => {
+      countdown--;
+      setFallCountdown(countdown);
+
+      if (countdown <= 0) {
+        // 카운트다운 완료 - 팝업 사라지고 응급연락 진행 메시지
+        if (fallCountdownRef.current) {
+          clearInterval(fallCountdownRef.current);
+          fallCountdownRef.current = null;
+        }
+
+        console.log("🚨 30초 경과 - 응급연락 진행");
+        handleFeedback(
+          "🚨 응급연락이 진행 중입니다. 구조대가 곧 도착할 예정입니다."
+        );
+
+        // 5초 후 팝업 닫기
+        setTimeout(() => {
+          setShowFallPopup(false);
+        }, 5000);
+      }
+    }, 1000);
+
+    handleFeedback(
+      "🚨 낙상이 감지되었습니다! 괜찮으시면 '괜찮습니다' 버튼을 눌러주세요."
+    );
+  }, [isTransmitting, stopAllAudio, playFallAlert]);
+
+  // 🚨 낙상 감지 취소 처리 함수
+  const handleFallCancel = useCallback(async () => {
+    console.log("🚨 사용자가 '괜찮습니다' 버튼 클릭 - 응급연락 취소");
+
+    try {
+      // 카운트다운 중단
+      if (fallCountdownRef.current) {
+        clearInterval(fallCountdownRef.current);
+        fallCountdownRef.current = null;
+      }
+
+      // 서버에 응급연락 취소 요청
+      await axios.post("http://127.0.0.1:5001/disconnect_call");
+      console.log("✅ 서버에 응급연락 취소 요청 완료");
+
+      // 낙상 감지 음성 중단
+      stopFallAudio();
+
+      // 팝업 닫기
+      setShowFallPopup(false);
+      setFallCountdown(30);
+
+      handleFeedback("✅ 응급연락이 취소되었습니다. 운동을 계속하세요.");
+
+      // 잠시 후 운동 재개 (사용자가 원할 경우)
+      setTimeout(() => {
+        if (!isResting && !isStartCountdown) {
+          // 운동 중이었다면 자동으로 재개하지 않고 사용자가 직접 시작하도록 함
+          handleFeedback("운동을 재개하려면 '전송 시작' 버튼을 눌러주세요.");
+        }
+      }, 2000);
+    } catch (error) {
+      console.error("❌ 응급연락 취소 요청 실패:", error);
+      handleFeedback("⚠️ 응급연락 취소 요청에 실패했습니다.");
+    }
+  }, [stopFallAudio, isResting, isStartCountdown]);
 
   // 🎯 세트 완료 처리 함수
   const handleSetComplete = useCallback(
@@ -444,27 +541,6 @@ const RealTimeExercisePage: React.FC = () => {
     },
     [navigate, currentSet, stopAllAudio]
   );
-
-  const handleFallDetected = useCallback(() => {
-    console.log("🚨 상위 컴포넌트: 낙상 감지됨");
-
-    // 낙상 알림 상태 활성화
-    setFallAlert(true);
-
-    // 운동 중이었다면 일시 중단
-    if (isTransmitting) {
-      setIsTransmitting(false);
-      handleFeedback("⚠️ 낙상 감지로 인해 운동이 일시 중단됩니다.");
-    }
-
-    // 음성 중단
-    stopAllAudio();
-
-    // 5초 후 알림 해제
-    setTimeout(() => {
-      setFallAlert(false);
-    }, 5000);
-  }, [isTransmitting, stopAllAudio]);
 
   // 피드백 추가 함수
   const handleFeedback = useCallback((message: string) => {
@@ -624,7 +700,6 @@ const RealTimeExercisePage: React.FC = () => {
     setUserPhoneNumber,
     setSelectedExercise,
     setSetsGlobal,
-    exerciseTypeMapping,
   ]);
 
   // 전체화면 토글 함수
@@ -669,6 +744,7 @@ const RealTimeExercisePage: React.FC = () => {
     };
   }, []);
 
+  // 컴포넌트 마운트/언마운트 처리
   useEffect(() => {
     console.log("RealTimeExercisePage가 마운트되었습니다.");
     console.log("exercise:", exercise);
@@ -684,11 +760,26 @@ const RealTimeExercisePage: React.FC = () => {
       return;
     }
 
-    // 🎵 컴포넌트 언마운트 시 음성 정리
+    // 🎵 컴포넌트 언마운트 시 음성 및 타이머 정리
     return () => {
       stopAllAudio();
+      stopFallAudio();
+
+      // 낙상 감지 카운트다운 타이머 정리
+      if (fallCountdownRef.current) {
+        clearInterval(fallCountdownRef.current);
+        fallCountdownRef.current = null;
+      }
     };
-  }, [exercise, sets, phoneNumber, navigate, location.search, stopAllAudio]);
+  }, [
+    exercise,
+    sets,
+    phoneNumber,
+    navigate,
+    location.search,
+    stopAllAudio,
+    stopFallAudio,
+  ]);
 
   // 카운트 업데이트 콜백
   const handleCountUpdate = useCallback((newCount: number) => {
@@ -771,6 +862,14 @@ const RealTimeExercisePage: React.FC = () => {
   const handleGoBackToExerciseSelection = () => {
     // 🎵 음성 중단
     stopAllAudio();
+    stopFallAudio();
+
+    // 낙상 감지 타이머 정리
+    if (fallCountdownRef.current) {
+      clearInterval(fallCountdownRef.current);
+      fallCountdownRef.current = null;
+    }
+
     navigate("/startexercises");
   };
 
@@ -865,20 +964,14 @@ const RealTimeExercisePage: React.FC = () => {
   return (
     <FullScreen>
       <Gnb />
-      {/* 🚨 낙상 감지 전체 화면 알림 */}
-      {fallAlert && (
-        <div className="fixed inset-0 bg-red-600 bg-opacity-90 flex flex-col items-center justify-center z-50">
-          <div className="text-white text-8xl font-bold mb-8 animate-pulse">
-            🚨 낙상 감지 🚨
-          </div>
-          <div className="text-white text-4xl font-semibold mb-4">
-            응급 연락이 진행 중입니다
-          </div>
-          <div className="text-white text-2xl">
-            안전한 곳으로 이동하여 도움을 기다려주세요
-          </div>
-        </div>
-      )}
+
+      {/* 🚨 낙상 감지 팝업 */}
+      <FallDetectionPopup
+        isVisible={showFallPopup}
+        onCancel={handleFallCancel}
+        countdown={fallCountdown}
+      />
+
       <Container>
         <ExerciseContainer>
           <TitleContainer>
@@ -971,7 +1064,10 @@ const RealTimeExercisePage: React.FC = () => {
                     feedback.includes("시작합니다") ||
                     feedback.includes("시작!") ||
                     feedback.includes("준비하세요!") ||
-                    feedback.includes("낙상 감지");
+                    feedback.includes("낙상 감지") ||
+                    feedback.includes("응급연락") ||
+                    feedback.includes("괜찮습니다") ||
+                    feedback.includes("취소되었습니다");
 
                   return (
                     <FeedbackMessage key={index} $isImportant={isImportant}>
