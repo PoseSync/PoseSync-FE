@@ -74,7 +74,7 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
   // 플래그 상수
   const showFace = false;
   const showGuideline = true;
-  const showDifferences = true;
+  const showDifferences = false;
   const videoWidth = 1920;
   const videoHeight = 1080;
 
