@@ -521,7 +521,8 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
             showGuideline &&
             processedMediaPipeResults &&
             !isResting &&
-            !isStartCountdown && (
+            !isStartCountdown &&
+            isTransmitting && (
               <MediaPipeVisualizer
                 videoElement={videoElement}
                 results={processedMediaPipeResults}

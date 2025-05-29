@@ -475,19 +475,21 @@ const RealTimeExercisePage: React.FC = () => {
       // 전송 중단을 먼저 하고, 잠시 후에 휴식 상태로 변경
       setIsTransmitting(false);
 
-      // disconnect_client 패킷이 전송될 시간을 주기 위해 약간 지연
-      setTimeout(() => {
-        setIsResting(true);
-      }, 100);
-
       if (setInfo.is_last) {
-        // 마지막 세트 완료 - 운동 종료
+        // 🎯 마지막 세트 완료 - 바로 운동 종료 페이지로 이동
         handleFeedback("모든 세트가 완료되었습니다! 수고하셨습니다.");
+
+        // 🎯 즉시 이동 (3초 지연 제거)
         setTimeout(() => {
           navigate("/completed");
-        }, 3000);
+        }, 1000); // 1초만 기다린 후 이동
       } else {
         // 다음 세트가 있음 - 10초 휴식 후 자동 시작
+        // disconnect_client 패킷이 전송될 시간을 주기 위해 약간 지연
+        setTimeout(() => {
+          setIsResting(true);
+        }, 100);
+
         setRestCountdown(10);
 
         // 🎯 null 체크 추가: set_number가 null이 아닐 때만 설정

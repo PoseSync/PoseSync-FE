@@ -1,9 +1,9 @@
-import React from 'react';
-import styled from 'styled-components';
-import Gnb from '../../components/gnb/Gnb';
-import DumbellImg from '../../assets/images/items/dumbell.png';
-import { PrimaryButton } from '../../components/buttons/PrimaryButton';
-import { useNavigate } from 'react-router-dom';
+import React from "react";
+import styled from "styled-components";
+import Gnb from "../../components/gnb/Gnb";
+import DumbellImg from "../../assets/images/items/dumbell.png";
+import { PrimaryButton } from "../../components/buttons/PrimaryButton";
+import { useNavigate } from "react-router-dom";
 
 const Container = styled.div`
   width: 3840px;
@@ -75,7 +75,7 @@ const TextContainer = styled.div`
 const TitleContainer = styled.div`
   width: 812px;
   height: 100px;
-  font-family: 'Pretendard Variable', sans-serif;
+  font-family: "Pretendard Variable", sans-serif;
   font-weight: 700;
   font-size: 80px;
   line-height: 100px;
@@ -89,7 +89,7 @@ const TitleContainer = styled.div`
 const BodyContainer = styled.div`
   width: 741px;
   height: 128px;
-  font-family: 'Pretendard Variable', sans-serif;
+  font-family: "Pretendard Variable", sans-serif;
   font-weight: 700;
   font-size: 48px;
   line-height: 64px;
@@ -119,16 +119,30 @@ const Completion = () => {
           <ItemContainer>
             <TopContainer>
               <ImageContainer>
-                <img src={DumbellImg} alt="덤벨 이미지" style={{ maxWidth: '100%', maxHeight: '100%' }} />
+                <img
+                  src={DumbellImg}
+                  alt="덤벨 이미지"
+                  style={{ maxWidth: "100%", maxHeight: "100%" }}
+                />
               </ImageContainer>
               <TextContainer>
                 <TitleContainer>목표한 운동을 완료했어요!</TitleContainer>
-                <BodyContainer>수고하셨습니다. 운동 효과가 궁금하다면<br/>아래 버튼을 눌러 확인해보세요!</BodyContainer>
+                <BodyContainer>
+                  수고하셨습니다. 운동 효과가 궁금하다면
+                  <br />
+                  아래 버튼을 눌러 확인해보세요!
+                </BodyContainer>
               </TextContainer>
             </TopContainer>
             <ButtonWrapper>
-                <PrimaryButton size="xl" fontSize="64px" onClick={() => navigate('/exercise-result')}>운동 결과 보러가기</PrimaryButton>
-              </ButtonWrapper>
+              <PrimaryButton
+                size="xl"
+                fontSize="64px"
+                onClick={() => navigate("/exercise-result")}
+              >
+                운동 결과 보러가기
+              </PrimaryButton>
+            </ButtonWrapper>
           </ItemContainer>
         </ContentContainer>
       </MainBox>
@@ -137,4 +151,3 @@ const Completion = () => {
 };
 
 export default Completion;
-
