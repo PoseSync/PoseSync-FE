@@ -375,11 +375,13 @@ const RealTimeExercisePage: React.FC = () => {
       // 🎵 음성 중단
       stopAllAudio();
 
-      // ✅ 1. 먼저 휴식 상태로 설정 (전송 중단보다 먼저!)
-      setIsResting(true);
-
-      // ✅ 2. 그 다음에 전송 중단 (disconnect_client 패킷 자동 전송)
+      // 전송 중단을 먼저 하고, 잠시 후에 휴식 상태로 변경
       setIsTransmitting(false);
+
+      // disconnect_client 패킷이 전송될 시간을 주기 위해 약간 지연
+      setTimeout(() => {
+        setIsResting(true);
+      }, 100);
 
       if (setInfo.is_last) {
         // 마지막 세트 완료 - 운동 종료
@@ -515,6 +517,23 @@ const RealTimeExercisePage: React.FC = () => {
 
   // 🎵 횟수 변화 감지 및 음성 재생
   useEffect(() => {
+    // 🔍 디버깅: 모든 조건 상태 출력
+    console.log("🎵 음성 재생 조건 체크:", {
+      count,
+      prevCount,
+      isTransmitting,
+      isResting,
+      isStartCountdown,
+      "count > prevCount": count > prevCount,
+      "count > 0": count > 0,
+      전체조건:
+        isTransmitting &&
+        !isResting &&
+        !isStartCountdown &&
+        count > prevCount &&
+        count > 0,
+    });
+
     // 운동 중이고, 횟수가 증가했을 때만 음성 재생
     if (
       isTransmitting &&
@@ -531,16 +550,19 @@ const RealTimeExercisePage: React.FC = () => {
 
       const targetReps = currentSetData.reps || 5;
 
-      console.log(`🎵 음성 재생: ${count}회 (목표: ${targetReps}회)`);
+      console.log(`🎵 음성 재생 실행: ${count}회 (목표: ${targetReps}회)`);
 
       // 0.5초 지연 후 음성 재생 (운동 완료 후 음성이 나오도록)
       const audioTimeout = setTimeout(() => {
+        console.log(`🎵 실제 음성 재생 호출: ${count}회`);
         playCountGuide(count, targetReps);
       }, 500);
 
       setPrevCount(count);
 
       return () => clearTimeout(audioTimeout);
+    } else {
+      console.log("🎵 음성 재생 조건 미충족");
     }
   }, [
     count,
