@@ -286,8 +286,10 @@ export const useSocket = (options: UseSocketOptions) => {
       // 소켓 정리
       if (newSocket.connected) {
         console.log("🔌 소켓 연결 해제 중...");
-        newSocket.emit("disconnection", { phoneNumber: numericPhoneNumber });
-        newSocket.disconnect();
+        newSocket.emit("disconnect_client", {
+          phoneNumber: numericPhoneNumber,
+          count: currentCountRef.current || 0,
+        });
       }
 
       // 이벤트 리스너 제거
