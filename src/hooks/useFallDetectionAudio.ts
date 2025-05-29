@@ -1,292 +1,162 @@
-import { useState, useEffect, useCallback, useRef } from "react";
-import { Socket, io } from "socket.io-client";
-import { Landmark } from "../types";
+import { useRef, useCallback, useEffect, useState } from "react";
 
-interface UseFallMonitorSocketOptions {
-  phoneNumber: string;
-  autoConnect?: boolean;
+interface FallDetectionAudioHook {
+  playFallAlert: () => void;
+  stopAllAudio: () => void;
+  isPlaying: boolean;
 }
 
-// 🔥 서버 URL 설정 개선
-const getServerUrl = () => {
-  const hostname = window.location.hostname;
+export const useFallDetectionAudio = (): FallDetectionAudioHook => {
+  const sirenAudioRef = useRef<HTMLAudioElement | null>(null);
+  const voiceAudioRef = useRef<HTMLAudioElement | null>(null);
+  const [isPlaying, setIsPlaying] = useState<boolean>(false);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // 개발 환경 처리
-  if (hostname === "localhost" || hostname === "127.0.0.1") {
-    return "http://127.0.0.1:5001";
-  }
+  // 🚨 낙상 감지 전용 오디오 파일
+  const audioFiles = {
+    siren: "/audio/siren.mp3", // 8초 사이렌 (5초만 재생)
+    emergency: "/audio/emergency_voice.wav", // 응급상황 음성
+  };
 
-  // 운영 환경 처리
-  return `http://${hostname}:5001`;
-};
-
-export const useFallMonitorSocket = (options: UseFallMonitorSocketOptions) => {
-  const { phoneNumber, autoConnect = true } = options;
-
-  // 전화번호에서 숫자만 추출
-  const numericPhoneNumber = phoneNumber.replace(/[^0-9]/g, "");
-
-  // 상태
-  const [socket, setSocket] = useState<Socket | null>(null);
-  const [isConnected, setIsConnected] = useState<boolean>(false);
-  const [isConnecting, setIsConnecting] = useState<boolean>(false);
-  const [error, setError] = useState<Error | null>(null);
-  const [fallDetected, setFallDetected] = useState<boolean>(false);
-
-  // 참조
-  const mountedRef = useRef<boolean>(true);
-  const lastSentRef = useRef<number>(0);
-  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
-    null
-  );
-  const maxReconnectAttempts = 5;
-  const [reconnectAttempts, setReconnectAttempts] = useState(0);
-
-  // 🔥 연결 재시도 함수
-  const attemptReconnect = useCallback(() => {
-    if (reconnectAttempts >= maxReconnectAttempts) {
-      console.log("🚨 낙상 감지 소켓 최대 재연결 시도 초과");
-      setError(new Error("낙상 감지 서버에 연결할 수 없습니다"));
-      return;
-    }
-
-    const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 10000); // 지수 백오프
-    console.log(
-      `🔄 ${delay}ms 후 낙상 감지 소켓 재연결 시도 (${
-        reconnectAttempts + 1
-      }/${maxReconnectAttempts})`
-    );
-
-    reconnectTimeoutRef.current = setTimeout(() => {
-      if (mountedRef.current && socket && !socket.connected) {
-        setReconnectAttempts((prev) => prev + 1);
-        socket.connect();
-      }
-    }, delay);
-  }, [reconnectAttempts, socket]);
-
-  // 소켓 초기화
+  // 오디오 초기화
   useEffect(() => {
-    mountedRef.current = true;
+    sirenAudioRef.current = new Audio();
+    voiceAudioRef.current = new Audio();
 
-    const serverUrl = getServerUrl();
-    console.log("🔌 낙상 감지 소켓 서버 URL:", serverUrl);
+    const sirenAudio = sirenAudioRef.current;
+    const voiceAudio = voiceAudioRef.current;
 
-    const newSocket = io(serverUrl, {
-      autoConnect: false,
-      reconnection: false, // 수동으로 재연결 관리
-      transports: ["websocket", "polling"],
-      timeout: 10000, // 10초 타임아웃
-      forceNew: true, // 새 연결 강제
-    });
-
-    // 연결 성공 이벤트 처리
-    newSocket.on("connect", () => {
-      if (!mountedRef.current) return;
-
-      console.log("🟢 낙상 감지 소켓 연결됨:", newSocket.id);
-      setIsConnected(true);
-      setIsConnecting(false);
-      setError(null);
-      setReconnectAttempts(0); // 재연결 카운터 리셋
-
-      // 연결 이벤트 전송
-      console.log("📤 낙상 감지 connection 이벤트 전송:", {
-        phoneNumber: numericPhoneNumber,
-      });
-      newSocket.emit("connection", { phoneNumber: numericPhoneNumber });
-    });
-
-    // 연결 해제 이벤트 처리
-    newSocket.on("disconnect", (reason) => {
-      if (!mountedRef.current) return;
-
-      console.log("🔴 낙상 감지 소켓 연결 해제됨:", reason);
-      setIsConnected(false);
-
-      // 🔥 자동 재연결 시도 (서버 종료가 아닌 경우)
-      if (
-        reason !== "io server disconnect" &&
-        reason !== "io client disconnect"
-      ) {
-        console.log("🔄 낙상 감지 소켓 자동 재연결 시도");
-        attemptReconnect();
-      }
-    });
-
-    // 연결 오류 처리
-    newSocket.on("connect_error", (err) => {
-      if (!mountedRef.current) return;
-
-      console.error("❌ 낙상 감지 소켓 연결 오류:", err.message);
-      setIsConnecting(false);
-
-      // 🔥 연결 오류 시에도 재연결 시도
-      if (reconnectAttempts < maxReconnectAttempts) {
-        console.log("🔄 연결 오류로 인한 재연결 시도");
-        attemptReconnect();
-      } else {
-        setError(new Error(`낙상 감지 연결 오류: ${err.message}`));
-      }
-    });
-
-    // 낙상 감지 결과 수신
-    newSocket.on(
-      "result",
-      (data: { is_fall?: boolean; requestId?: string }) => {
-        if (!mountedRef.current) return;
-
-        console.log("🚨 낙상 감지 결과 수신:", data);
-
-        if (data.is_fall === true) {
-          console.log("🚨🚨🚨 낙상 감지됨! 🚨🚨🚨");
-          setFallDetected(true);
-        }
-      }
-    );
-
-    // 🔥 서버 응답 확인 이벤트
-    newSocket.on("connected", (data) => {
-      if (!mountedRef.current) return;
-      console.log("🟢 낙상 감지 서버 응답 확인:", data);
-    });
-
-    setSocket(newSocket);
-
-    // 자동 연결
-    if (autoConnect) {
-      console.log("🔄 낙상 감지 소켓 자동 연결 시도 중...");
-      newSocket.connect();
-      setIsConnecting(true);
-    }
-
-    // 정리 함수
-    return () => {
-      mountedRef.current = false;
-
-      // 재연결 타이머 정리
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current);
-        reconnectTimeoutRef.current = null;
-      }
-
-      if (newSocket.connected) {
-        console.log("🔌 낙상 감지 소켓 연결 해제 중...");
-        newSocket.emit("disconnect_monitor", {
-          phoneNumber: numericPhoneNumber,
-        });
-        newSocket.disconnect();
-      }
-
-      newSocket.removeAllListeners();
-      newSocket.close();
+    // 사이렌 오디오 이벤트
+    const handleSirenLoadStart = () => {
+      setIsPlaying(true);
+      console.log("🚨 낙상 감지 사이렌 재생 시작");
     };
-  }, [numericPhoneNumber, autoConnect, attemptReconnect]);
 
-  // 연결 함수
-  const connect = useCallback(() => {
-    if (!socket) {
-      console.error("낙상 감지 소켓이 초기화되지 않음");
-      return;
-    }
+    const handleSirenEnded = () => {
+      console.log("🚨 사이렌 재생 완료, 음성 재생 시작");
+      playEmergencyVoice();
+    };
 
-    if (socket.connected) {
-      console.log("낙상 감지 소켓 이미 연결됨");
-      return;
-    }
+    const handleSirenError = (e: Event) => {
+      console.error("🚨 사이렌 재생 오류:", e);
+      // 사이렌 실패 시 바로 음성 재생
+      playEmergencyVoice();
+    };
 
-    if (isConnecting) {
-      console.log("낙상 감지 소켓 이미 연결 중");
-      return;
-    }
+    // 음성 오디오 이벤트
+    const handleVoiceEnded = () => {
+      setIsPlaying(false);
+      console.log("🚨 응급상황 음성 재생 완료");
+    };
 
-    setIsConnecting(true);
-    setError(null);
-    setReconnectAttempts(0);
+    const handleVoiceError = (e: Event) => {
+      console.error("🚨 응급상황 음성 재생 오류:", e);
+      setIsPlaying(false);
+    };
 
-    console.log("🔄 낙상 감지 소켓 연결 시도 중...");
-    socket.connect();
-  }, [socket, isConnecting]);
+    sirenAudio.addEventListener("loadstart", handleSirenLoadStart);
+    sirenAudio.addEventListener("ended", handleSirenEnded);
+    sirenAudio.addEventListener("error", handleSirenError);
 
-  // 연결 해제 함수
-  const disconnect = useCallback(() => {
-    if (!socket) {
-      console.error("낙상 감지 소켓이 초기화되지 않음");
-      return;
-    }
+    voiceAudio.addEventListener("ended", handleVoiceEnded);
+    voiceAudio.addEventListener("error", handleVoiceError);
 
-    // 재연결 타이머 정리
-    if (reconnectTimeoutRef.current) {
-      clearTimeout(reconnectTimeoutRef.current);
-      reconnectTimeoutRef.current = null;
-    }
+    return () => {
+      // 이벤트 리스너 제거
+      sirenAudio.removeEventListener("loadstart", handleSirenLoadStart);
+      sirenAudio.removeEventListener("ended", handleSirenEnded);
+      sirenAudio.removeEventListener("error", handleSirenError);
 
-    if (!socket.connected) {
-      console.log("낙상 감지 소켓 이미 연결 해제됨");
-      return;
-    }
+      voiceAudio.removeEventListener("ended", handleVoiceEnded);
+      voiceAudio.removeEventListener("error", handleVoiceError);
 
-    console.log("🔌 낙상 감지 소켓 연결 해제 중...");
-    socket.emit("disconnect_monitor", { phoneNumber: numericPhoneNumber });
-    socket.disconnect();
-  }, [socket, numericPhoneNumber]);
+      // 오디오 정리
+      sirenAudio.pause();
+      sirenAudio.src = "";
+      voiceAudio.pause();
+      voiceAudio.src = "";
 
-  // 🔥 낙상 감지 데이터 전송 함수 (에러 처리 강화)
-  const sendFallMonitorData = useCallback(
-    (landmarks: Landmark[]): boolean => {
-      if (!socket || !isConnected || !mountedRef.current) {
-        return false;
+      // 타이머 정리
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
       }
+    };
+  }, []);
 
-      // 전송 속도 제한 (200ms 당 최대 1회)
-      const now = Date.now();
-      if (now - lastSentRef.current < 200) {
-        return false;
-      }
+  // 응급상황 음성 재생 함수
+  const playEmergencyVoice = useCallback(async () => {
+    if (!voiceAudioRef.current) return;
 
-      try {
-        const requestId = `fall_${now}_${Math.floor(Math.random() * 10000)}`;
+    try {
+      voiceAudioRef.current.src = audioFiles.emergency;
+      voiceAudioRef.current.volume = 1.0;
+      await voiceAudioRef.current.play();
+      console.log("🔊 응급상황 음성 재생 중");
+    } catch (error) {
+      console.error("🔊 응급상황 음성 재생 실패:", error);
+      setIsPlaying(false);
+    }
+  }, []);
 
-        const data = {
-          phoneNumber: numericPhoneNumber,
-          landmarks,
-          requestId,
-        };
+  // 낙상 감지 알림 재생 (사이렌 5초 + 음성)
+  const playFallAlert = useCallback(async () => {
+    if (!sirenAudioRef.current) return;
 
-        // monitor_fall 이벤트로 전송
-        socket.emit("monitor_fall", data);
-        lastSentRef.current = now;
+    try {
+      console.log("🚨 낙상 감지 알림 시작");
 
-        return true;
-      } catch (err) {
-        console.error("낙상 감지 데이터 전송 오류:", err);
+      // 기존 재생 중단
+      stopAllAudio();
 
-        // 전송 오류 시 연결 상태 확인
-        if (!socket.connected) {
-          console.log("🔄 전송 오류로 인한 재연결 시도");
-          attemptReconnect();
+      // 사이렌 설정 및 재생
+      sirenAudioRef.current.src = audioFiles.siren;
+      sirenAudioRef.current.volume = 1.0;
+
+      await sirenAudioRef.current.play();
+      console.log("🚨 사이렌 재생 시작 (5초 제한)");
+
+      // 5초 후 사이렌 중단하고 음성 재생
+      timeoutRef.current = setTimeout(() => {
+        if (sirenAudioRef.current) {
+          sirenAudioRef.current.pause();
+          sirenAudioRef.current.currentTime = 0;
+          console.log("🚨 사이렌 5초 재생 완료");
         }
+        playEmergencyVoice();
+      }, 5000);
+    } catch (error) {
+      console.error("🚨 낙상 감지 알림 재생 실패:", error);
+      setIsPlaying(false);
+    }
+  }, [playEmergencyVoice]);
 
-        return false;
-      }
-    },
-    [socket, isConnected, numericPhoneNumber, attemptReconnect]
-  );
+  // 모든 오디오 중단
+  const stopAllAudio = useCallback(() => {
+    // 타이머 정리
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
 
-  // 낙상 감지 상태 초기화
-  const resetFallDetection = useCallback(() => {
-    setFallDetected(false);
+    // 사이렌 중단
+    if (sirenAudioRef.current) {
+      sirenAudioRef.current.pause();
+      sirenAudioRef.current.currentTime = 0;
+    }
+
+    // 음성 중단
+    if (voiceAudioRef.current) {
+      voiceAudioRef.current.pause();
+      voiceAudioRef.current.currentTime = 0;
+    }
+
+    setIsPlaying(false);
+    console.log("🚨 낙상 감지 음성 모두 중단");
   }, []);
 
   return {
-    isConnected,
-    isConnecting,
-    connect,
-    disconnect,
-    sendFallMonitorData,
-    fallDetected,
-    resetFallDetection,
-    error,
-    reconnectAttempts, // 🔥 재연결 시도 횟수 노출
+    playFallAlert,
+    stopAllAudio,
+    isPlaying,
   };
 };
