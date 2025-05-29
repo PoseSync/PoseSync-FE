@@ -7,6 +7,7 @@ interface UseSocketOptions {
   exerciseType: string;
   autoConnect?: boolean;
   onSetComplete?: (setInfo: NextSetInfo) => void; // 세트 완료 콜백 추가
+  onFallDetected?: () => void; // 🆕 낙상 감지 콜백 추가
 }
 
 // 서버 URL 설정 - window.location.hostname을 사용하여 동적으로 설정
@@ -38,6 +39,7 @@ export const useSocket = (options: UseSocketOptions) => {
     exerciseType,
     autoConnect = false,
     onSetComplete,
+    onFallDetected, // 🆕 낙상 감지 콜백
   } = options;
 
   // 전화번호에서 숫자만 추출
@@ -176,6 +178,7 @@ export const useSocket = (options: UseSocketOptions) => {
           serverProcessingTime?: number;
           exerciseCount?: number;
           count?: number;
+          is_fall?: boolean; // 🆕 낙상 감지 필드 추가
         }
       ) => {
         if (!mountedRef.current) return;
@@ -214,6 +217,14 @@ export const useSocket = (options: UseSocketOptions) => {
           const stats = calculateLatencyStats();
           if (stats) {
             setLatencyStats(stats);
+          }
+        }
+
+        // 🆕 낙상 감지 처리 추가
+        if (data.is_fall === true) {
+          console.log("🚨🚨🚨 운동 중 낙상 감지됨! 🚨🚨🚨");
+          if (onFallDetected) {
+            onFallDetected();
           }
         }
 
@@ -287,6 +298,7 @@ export const useSocket = (options: UseSocketOptions) => {
     serverUrl,
     calculateLatencyStats,
     onSetComplete,
+    onFallDetected, // 🆕 의존성 추가
   ]);
 
   // 레이턴시 통계를 주기적으로 콘솔에 출력

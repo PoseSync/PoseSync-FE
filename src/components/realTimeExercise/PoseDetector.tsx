@@ -106,7 +106,7 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
     minTrackingConfidence: 0.3,
   });
 
-  // 기존 운동 분석용 Socket.io 훅
+  // 🆕 수정된 운동 분석용 Socket.io 훅 (낙상 감지 콜백 추가)
   const {
     isConnected,
     isConnecting,
@@ -119,9 +119,10 @@ const PoseDetector: React.FC<PoseDetectorProps> = ({
     exerciseType,
     autoConnect: false,
     onSetComplete,
+    onFallDetected, // 🆕 운동용 소켓에서도 낙상 감지 처리
   });
 
-  // 🚨 낙상 감지 처리
+  // 🚨 낙상 감지 처리 (useFallMonitorSocket에서만 처리)
   useEffect(() => {
     if (fallDetected) {
       console.log("🚨 낙상이 감지되었습니다!");
