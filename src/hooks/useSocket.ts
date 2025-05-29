@@ -283,7 +283,16 @@ export const useSocket = (options: UseSocketOptions) => {
         timeoutRef.current = null;
       }
 
-      // 소켓 정리 (패킷 전송 없이 바로 정리)
+      // 소켓 정리 전에 disconnect_client 패킷 전송
+      if (newSocket.connected) {
+        console.log("🔌 소켓 연결 해제 중...");
+        newSocket.emit("disconnect_client", {
+          phoneNumber: numericPhoneNumber,
+          count: currentCountRef.current || 0,
+        });
+      }
+
+      // 소켓 정리
       newSocket.removeAllListeners();
       newSocket.close();
     };
@@ -320,6 +329,29 @@ export const useSocket = (options: UseSocketOptions) => {
     console.log("서버 URL 변경:", url);
     // serverUrl은 이제 상태로 관리되지 않으므로 이 함수는 더 이상 사용되지 않음
   }, []);
+
+  // 클라이언트 연결 해제 함수 (운동 데이터 저장용)
+  const disconnectClient = useCallback(() => {
+    if (!socket) {
+      console.error("소켓이 초기화되지 않음");
+      return;
+    }
+
+    if (!socket.connected) {
+      console.log("소켓이 연결되어 있지 않음");
+      return;
+    }
+
+    console.log("🔴 disconnect_client 패킷 전송 중...");
+    console.log("현재 운동 횟수:", currentCountRef.current);
+
+    socket.emit("disconnect_client", {
+      phoneNumber: numericPhoneNumber,
+      count: currentCountRef.current,
+    });
+
+    console.log("✅ disconnect_client 패킷 전송 완료");
+  }, [socket, numericPhoneNumber]);
 
   // 연결 함수
   const connect = useCallback(() => {
@@ -407,6 +439,7 @@ export const useSocket = (options: UseSocketOptions) => {
     isConnected,
     isConnecting,
     connect,
+    disconnectClient,
     sendPose,
     processedResult,
     error,

@@ -107,7 +107,16 @@ export const useFallMonitorSocket = (options: UseFallMonitorSocketOptions) => {
     return () => {
       mountedRef.current = false;
 
-      // 소켓 정리 (패킷 전송 없이 바로 정리)
+      // 소켓 정리 전에 disconnect_monitor 패킷 전송
+      if (newSocket.connected) {
+        console.log("🔌 낙상 감지 소켓 연결 해제 중...");
+        newSocket.emit("disconnect_monitor", {
+          phoneNumber: numericPhoneNumber,
+        });
+        newSocket.disconnect();
+      }
+
+      // 소켓 정리
       newSocket.removeAllListeners();
       newSocket.close();
     };
@@ -136,6 +145,23 @@ export const useFallMonitorSocket = (options: UseFallMonitorSocketOptions) => {
     console.log("🔄 낙상 감지 소켓 연결 시도 중...");
     socket.connect();
   }, [socket, isConnecting]);
+
+  // 연결 해제 함수
+  const disconnect = useCallback(() => {
+    if (!socket) {
+      console.error("낙상 감지 소켓이 초기화되지 않음");
+      return;
+    }
+
+    if (!socket.connected) {
+      console.log("낙상 감지 소켓 이미 연결 해제됨");
+      return;
+    }
+
+    console.log("🔌 낙상 감지 소켓 연결 해제 중...");
+    socket.emit("disconnect_monitor", { phoneNumber: numericPhoneNumber });
+    socket.disconnect();
+  }, [socket, numericPhoneNumber]);
 
   // 낙상 감지 데이터 전송 함수
   const sendFallMonitorData = useCallback(
@@ -181,6 +207,7 @@ export const useFallMonitorSocket = (options: UseFallMonitorSocketOptions) => {
     isConnected,
     isConnecting,
     connect,
+    disconnect,
     sendFallMonitorData,
     fallDetected,
     resetFallDetection,

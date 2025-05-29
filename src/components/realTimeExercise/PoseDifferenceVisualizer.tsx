@@ -36,24 +36,14 @@ const PoseDifferenceVisualizer: React.FC<PoseDifferenceVisualizerProps> = ({
     if (!ctx) return;
 
     try {
-      // 모든 주요 관절 ID (하체 + 상체 팔 관절)
-      const KEY_JOINTS = [
-        // 하체 관절
-        23,
-        24, // 양쪽 고관절
-        25,
-        26, // 양쪽 무릎
-        27,
-        28, // 양쪽 발목
+      // 하체 관절 (유지)
+      const LOWER_BODY_KEYPOINTS = [23, 24, 25, 26, 27, 28];
 
-        // 상체 관절
-        11,
-        12, // 양쪽 어깨
-        13,
-        14, // 양쪽 팔꿈치
-        15,
-        16, // 양쪽 손목
-      ];
+      // 상체 관절 (몸통 부근 관절 반으로 줄임 - 어깨와 팔꿈치만 유지)
+      const UPPER_BODY_KEYPOINTS = [11, 12, 13, 14];
+
+      // 전체 주요 관절
+      const KEY_JOINTS = [...LOWER_BODY_KEYPOINTS, ...UPPER_BODY_KEYPOINTS];
 
       // 캔버스 크기 설정
       canvas.width = videoElement.videoWidth || width;
@@ -108,10 +98,7 @@ const PoseDifferenceVisualizer: React.FC<PoseDifferenceVisualizerProps> = ({
 
         // 관절별 허용 오차 반지름 설정
         let toleranceRadius;
-        if ([15, 16].includes(jointId)) {
-          // 손목: 조금 더 관대하게
-          toleranceRadius = Math.min(canvas.width, canvas.height) * 0.035;
-        } else if ([13, 14].includes(jointId)) {
+        if ([13, 14].includes(jointId)) {
           // 팔꿈치: 중간 정도
           toleranceRadius = Math.min(canvas.width, canvas.height) * 0.032;
         } else {
@@ -123,15 +110,13 @@ const PoseDifferenceVisualizer: React.FC<PoseDifferenceVisualizerProps> = ({
         const isInaccurate = distance > toleranceRadius;
 
         if (isInaccurate) {
-          // 거리에 따른 원 크기 및 투명도 조정
+          // 거리에 따른 원 크기 조정 (맥박 효과 제거)
           const maxDistance = Math.min(canvas.width, canvas.height) * 0.15;
           const normalizedDistance = Math.min(distance / maxDistance, 1);
 
-          // 맥박 효과
-          const pulsePhase = (Date.now() / 1000) * 4; // 4초 주기로 빠르게
-          const pulseMultiplier = 1 + Math.sin(pulsePhase) * 0.3; // 30% 변화
+          // 고정된 크기의 원 (맥박 효과 제거)
           const currentRadius =
-            toleranceRadius * (1 + normalizedDistance * 0.5) * pulseMultiplier;
+            toleranceRadius * (1 + normalizedDistance * 0.5);
 
           // 💡 기존 색상과 겹치지 않는 주황색 계열 사용
           // 녹색(사용자): #4ade80, 파란색(가이드라인): #60a5fa
@@ -146,7 +131,7 @@ const PoseDifferenceVisualizer: React.FC<PoseDifferenceVisualizerProps> = ({
           ctx.scale(-1, 1);
           ctx.translate(-canvas.width, 0);
 
-          // 부정확한 자세 표시 원 그리기
+          // 부정확한 자세 표시 원 그리기 (고정된 크기)
           ctx.beginPath();
           ctx.arc(userX, userY, currentRadius, 0, 2 * Math.PI);
           ctx.fill();
@@ -212,8 +197,6 @@ const PoseDifferenceVisualizer: React.FC<PoseDifferenceVisualizerProps> = ({
               12: "오른어깨",
               13: "왼팔꿈치",
               14: "오른팔꿈치",
-              15: "왼손목",
-              16: "오른손목",
             };
 
             const jointName = jointNames[jointId];
