@@ -1,114 +1,109 @@
-# React + TypeScript + Vite
+# 🏋️ PoseSync
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+&nbsp;
+## 🔧 Tech Stack
+<p>
+  <img src="https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white">
+  <img src="https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white">
+  <img src="https://img.shields.io/badge/Flask-000000?style=for-the-badge&logo=flask&logoColor=white">
+  <img src="https://img.shields.io/badge/React-61DAFB?style=for-the-badge&logo=react&logoColor=black">
+  <img src="https://img.shields.io/badge/MediaPipe-FEAA2D?style=for-the-badge&logo=google&logoColor=white">
+  <img src="https://img.shields.io/badge/MySQL-4479A1?style=for-the-badge&logo=mysql&logoColor=white">
+  <img src="https://img.shields.io/badge/TensorFlow-FF6F00?style=for-the-badge&logo=tensorflow&logoColor=white">
+  <img src="https://img.shields.io/badge/Twilio-F22F46?style=for-the-badge&logo=twilio&logoColor=white">
+  <img src="https://img.shields.io/badge/AWS EC2-FF9900?style=for-the-badge&logo=amazon-aws&logoColor=white">
+  <img src="https://img.shields.io/badge/Amazon Aurora-527FFF?style=for-the-badge&logo=amazon&logoColor=white">
+</p>
 
-Currently, two official plugins are available:
+&nbsp;
+## ✨ Main Feature
+![image](https://github.com/user-attachments/assets/99c9b526-061d-42b7-87b7-45185173466e)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+![image](https://github.com/user-attachments/assets/833e9bad-02d0-470f-8c45-fa1e0bd01af1)
 
-## Expanding the ESLint configuration
+![image](https://github.com/user-attachments/assets/3414b18f-a9cc-40b9-82a0-1b20e399c5b0)
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+![image](https://github.com/user-attachments/assets/e83fc704-720c-43f2-8e80-455e12338ab6)
 
-```js
-export default tseslint.config({
-  extends: [
-    // Remove ...tseslint.configs.recommended and replace with this
-    ...tseslint.configs.recommendedTypeChecked,
-    // Alternatively, use this for stricter rules
-    ...tseslint.configs.strictTypeChecked,
-    // Optionally, add this for stylistic rules
-    ...tseslint.configs.stylisticTypeChecked,
-  ],
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ["./tsconfig.node.json", "./tsconfig.app.json"],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-});
-```
+![image](https://github.com/user-attachments/assets/4def5c1f-08f0-4043-b5f7-61a6a973f23d)
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+![image](https://github.com/user-attachments/assets/bc55310e-1033-48ff-a044-7ed7e4200822)
 
-```js
-// eslint.config.js
-import reactX from "eslint-plugin-react-x";
-import reactDom from "eslint-plugin-react-dom";
+![image](https://github.com/user-attachments/assets/bfd9350f-8ed3-4db7-bbca-e848ffd8dbc4)
 
-export default tseslint.config({
-  plugins: {
-    // Add the react-x and react-dom plugins
-    "react-x": reactX,
-    "react-dom": reactDom,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended typescript rules
-    ...reactX.configs["recommended-typescript"].rules,
-    ...reactDom.configs.recommended.rules,
-  },
-});
-```
+&nbsp;
+## 👩‍💻👨‍💻 Developers
 
-# PoseSync-FE
+<table>
+    <tr height="200px">
+        <td align="center" width="200px">
+            <a href="https://github.com/HSSJW">
+                <img height="150px" width="150px" src="https://avatars.githubusercontent.com/HSSJW"/>
+            </a>
+            <br />
+            <a href="https://github.com/HSSJW">송진우</a>
+        </td>
+        <td align="center" width="200px">
+            <a href="https://github.com/mrangjw">
+                <img height="150px" width="150px" src="https://avatars.githubusercontent.com/mrangjw"/>
+            </a>
+            <br />
+            <a href="https://github.com/mrangjw">양정우</a>
+        </td>
+        <td align="center" width="200px">
+            <a href="https://github.com/ksj321456">
+                <img height="150px" width="150px" src="https://avatars.githubusercontent.com/ksj321456"/>
+            </a>
+            <br />
+            <a href="https://github.com/ksj321456">김성재</a>
+        </td>
+        <td align="center" width="200px">
+            <a href="https://github.com/orgs/PoseSync/people/PocheonLim">
+                <img height="150px" width="150px" src="https://avatars.githubusercontent.com/PocheonLim"/>
+            </a>
+            <br />
+            <a href="https://github.com/orgs/PoseSync/people/PocheonLim">임성훈</a>
+        </td>
+    </tr>
+</table>
 
-PoseSync 프로젝트의 프론트엔드 리포지토리입니다. 실시간 포즈 감지 및 분석을 위한 웹 애플리케이션입니다.
+&nbsp;
+## 🗂 ERD
+![image](https://github.com/user-attachments/assets/234ec060-a572-499c-8223-6a4f896621a2)
 
-## 기술 스택
+&nbsp;
+## 🛠 Project Architecture
+![KakaoTalk_20250511_205818925](https://github.com/user-attachments/assets/c469e7b8-d881-4edc-af5a-d11a1e2d1496)
 
-- React
-- TypeScript
-- Vite
-- styled-components
-- MediaPipe (예정)
+&nbsp;
+## 🚀 git flow
+- `main`
+  - 프로젝트 최종 merge
+  - 기본 프로젝트 세팅, 배포 가능한 브랜치, 항상 배포 가능한 상태를 유지
+- `develop`
+  - 데모데이 전까지 완성한 기능들을 계속해서 merge
+  - 배포 가능한 브랜치, 항상 배포 가능한 상태를 유지
+- `{type}/{description}`: 개발 브랜치
+  - 예: `feat/login`, `fix/login-token`
 
-## 시작하기
+&nbsp;
+## 💻 Commit Message Convention
+## 💻 Commit Message Convention
 
-### 필수 조건
+| Type                 | Description                                                  |
+| -------------------- | ------------------------------------------------------------ |
+| **Feat**             | 새로운 기능 추가                                             |
+| **Fix**              | 버그 수정                                                    |
+| **Docs**             | 문서 수정                                                    |
+| **Style**            | 코드 formatting, 세미콜론 누락, 코드 자체의 변경이 없는 경우 |
+| **Refactor**         | 코드 리팩토링                                                |
+| **Test**             | 테스트 코드, 리팩토링 테스트 코드 추가                       |
+| **Chore**            | 패키지 매니저 수정, 그 외 기타 수정 (예: .gitignore)         |
+| **Design**           | CSS 등 사용자 UI 디자인 변경                                 |
+| **Comment**          | 필요한 주석 추가 및 변경                                     |
+| **Rename**           | 파일 또는 폴더 명을 수정하거나 옮기는 작업만인 경우          |
+| **Remove**           | 파일을 삭제하는 작업만 수행한 경우                           |
+| **!BREAKING CHANGE** | 커다란 API 변경의 경우                                       |
+| **!HOTFIX**          | 급하게 치명적인 버그를 고쳐야 하는 경우                      |
 
-- Node.js
-- npm
-
-### 설치
-
-```bash
-# 리포지토리 클론
-git clone https://github.com/PoseSync/PoseSync-FE.git
-cd PoseSync-FE
-
-# 의존성 설치
-npm install
-
-# 개발 서버 실행
-npm run dev
-```
-
-## 주요 기능 (예정)
-
-- 실시간 포즈 감지
-- 포즈 분석 및 피드백
-- 사용자 맞춤형 포즈 추천
-- 포즈 기록 및 통계
-
-## 프로젝트 구조
-
-```
-src/
-├── assets/       # 이미지, 아이콘 등 정적 파일
-├── components/   # 재사용 가능한 컴포넌트
-├── hooks/        # 커스텀 훅
-├── pages/        # 페이지 컴포넌트
-├── styles/       # 스타일 관련 파일
-└── utils/        # 유틸리티 함수
-```
-
-## 개발 진행 상황
-
-- [x] 초기 프로젝트 설정
-- [x] 기본 페이지 레이아웃
-- [ ] MediaPipe 연동
-- [ ] 포즈 감지 기능 구현
-- [ ] 사용자 인터페이스 개선
+ex. `Feat : 새로운 기능 추가`
