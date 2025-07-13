@@ -19,6 +19,7 @@
 ## 🎥 Demo Video
 
 [![Demo Video](https://img.youtube.com/vi/VsujVQyxNhc/0.jpg)](https://www.youtube.com/watch?v=VsujVQyxNhc)
+영상시청을 위해 화면을 터치해주시길 바랍니다.
 
 &nbsp;
 ## ✨ Main Feature
